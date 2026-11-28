@@ -12,6 +12,7 @@ ALTER TABLE public.orders ADD COLUMN status text, ADD COLUMN operational_status 
 \ir ../../../../supabase/migrations/20261111180000_f11_adao_rejected_shipping_recovery.sql
 \ir d11-observation-candidate.sql
 \ir d11-policy-claim-candidate.sql
+\ir d11-preflight-lifecycle-candidate.sql
 \ir d11-observation-fixture-helper.sql
 -- Disposable fault injection: failure to bind must roll back the fresh claim.
 CREATE FUNCTION public.d11_fixture_reject_binding() RETURNS trigger LANGUAGE plpgsql AS $fault$
@@ -193,6 +194,45 @@ BEGIN
 END $quota$;
 RESET ROLE;
 
+-- Same canonical label identity contract as the existing Core label locator.
+CREATE TABLE IF NOT EXISTS public.order_documents(
+ id uuid PRIMARY KEY DEFAULT gen_random_uuid(),order_id uuid,document_type text,
+ source text,storage_bucket text,storage_path text,mime_type text,file_size integer);
+ALTER TABLE public.order_documents ENABLE ROW LEVEL SECURITY;
+GRANT SELECT ON public.order_documents TO service_role;
+SET LOCAL ROLE service_role;
+DO $complete$
+DECLARE b uuid:='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'; l uuid;
+BEGIN
+ SELECT lease_id INTO l FROM public.shopee_cycle_state WHERE channel_account_id=b;
+ ASSERT public.finish_shopee_d11_preflight(b,l,1,'D11SYNTHETIC1','d11_label_available')->>'status'='candidate_refused';
+END $complete$;
+RESET ROLE;
+INSERT INTO public.order_documents(order_id,document_type,source,storage_bucket,storage_path,mime_type,file_size)
+VALUES ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','shipping_label','shopee_open_platform','shopee-labels','wrong-path','application/pdf',100);
+SET LOCAL ROLE service_role;
+DO $complete$
+DECLARE b uuid:='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'; l uuid;
+BEGIN
+ SELECT lease_id INTO l FROM public.shopee_cycle_state WHERE channel_account_id=b;
+ ASSERT public.finish_shopee_d11_preflight(b,l,1,'D11SYNTHETIC1','d11_label_available')->>'status'='candidate_refused';
+END $complete$;
+RESET ROLE;
+UPDATE public.order_documents SET storage_path='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee/shopee-'||
+ encode(sha256(convert_to('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb:456:D11SYNTHETIC1:PKG1','UTF8')),'hex')||'.pdf'
+ WHERE order_id='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+SET LOCAL ROLE service_role;
+DO $complete$
+DECLARE b uuid:='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'; l uuid;
+BEGIN
+ SELECT lease_id INTO l FROM public.shopee_cycle_state WHERE channel_account_id=b;
+ PERFORM public.d11_fixture_observe(b,'fixture_label_finish');
+ ASSERT public.finish_shopee_d11_preflight(b,l,1,'D11SYNTHETIC1','d11_label_available')->>'status'='finished';
+ ASSERT (SELECT state FROM public.shopee_cycle_orders WHERE channel_account_id=b AND order_sn='D11SYNTHETIC1')='complete';
+ ASSERT (SELECT operational_status FROM public.orders WHERE channel_account_id=b AND order_number='D11SYNTHETIC1')='todo';
+ ASSERT (SELECT lease_id FROM public.shopee_cycle_state WHERE channel_account_id=b) IS NULL;
+END $complete$;
+RESET ROLE;
 -- Synthetic owner fixture simulates the future authenticated append-only pause.
 INSERT INTO public.shopee_cycle_policy_revisions(channel_account_id,revision,environment,shop_id,partner_id,history_cutoff)
 VALUES ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',2,'live',123,2047685,1);
