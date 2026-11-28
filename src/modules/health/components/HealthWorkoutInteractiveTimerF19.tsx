@@ -708,7 +708,7 @@ export function HealthWorkoutInteractiveTimerF19({
 
   return (
     <div className="space-y-3">
-      <div data-cch-session-bar className="sticky top-[calc(49px+env(safe-area-inset-top))] z-20 rounded-xl border bg-background/95 px-2 py-2 shadow-sm backdrop-blur">
+      <div data-cch-session-bar data-sau-paused={sessionPaused} className="sau-session-bar sticky top-[calc(49px+env(safe-area-inset-top))] z-20 rounded-xl border bg-background/95 px-2 py-2 shadow-sm backdrop-blur">
         <div className="flex items-center gap-1.5 sm:gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -717,10 +717,10 @@ export function HealthWorkoutInteractiveTimerF19({
                 {sessionPaused ? "pausado" : "ativo"}
               </Badge>
             </div>
-            <p className="truncate text-sm font-semibold">{sessionTitle}</p>
+            <p className="break-words text-sm font-semibold sm:text-base">{sessionTitle}</p>
           </div>
 
-          <div className="shrink-0 rounded-lg bg-muted px-2 py-2 font-mono text-base font-semibold tabular-nums sm:text-lg">
+          <div className="sau-session-clock shrink-0 rounded-lg bg-muted px-2 py-2 font-mono text-base font-semibold tabular-nums sm:text-lg">
             {formatElapsed(sessionElapsed)}
           </div>
 
@@ -845,7 +845,7 @@ export function HealthWorkoutInteractiveTimerF19({
         </Card>
       ) : null}
 
-      <Card className="border-primary/15">
+      <Card className="sau-exercise-nav border-primary/15">
         <CardContent className="px-3 py-3">
           <div className="grid grid-cols-[44px_1fr_44px] items-center gap-2">
             <Button
@@ -901,15 +901,20 @@ export function HealthWorkoutInteractiveTimerF19({
               <ChevronRight className="h-5 w-5" />
             </Button>
           </div>
+          {orderedExercises.length > 0 && <div className="mt-3 flex gap-1.5" aria-label={`Posição ${viewedIndex + 1} de ${orderedExercises.length}`}>
+            {orderedExercises.map((exercise,index)=><span key={exercise.id} aria-hidden="true" data-position={index===viewedIndex?"current":"other"} className="sau-exercise-position h-1.5 min-w-0 flex-1 rounded-full"/>) }
+          </div>}
         </CardContent>
       </Card>
 
       {sessionPaused ? (
-        <Card>
-          <CardContent className="space-y-3 py-4">
-            <p className="text-center text-sm font-semibold">Treino pausado</p>
+        <Card className="sau-paused-panel">
+          <CardContent className="space-y-3 py-5 text-center">
+            <span className="sau-pause-symbol mx-auto flex h-14 w-14 items-center justify-center rounded-full" aria-hidden="true"><Pause className="h-7 w-7"/></span>
+            <p className="text-center text-xl font-semibold">Treino pausado</p>
+            <p className="text-sm text-muted-foreground">Seu treino está em pausa. Retome para continuar.</p>
             <Button
-              className="min-h-12 w-full"
+              className="sau-resume-button min-h-14 w-full text-base font-bold"
               disabled={timer.saving}
               onClick={() =>
                 void run("Treino retomado.", timer.resumeWorkout)

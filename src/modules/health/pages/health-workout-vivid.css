@@ -1,0 +1,88 @@
+/* SAU: local visual identity for the active F19 workout only.
+   Explicit palette independent of the general application theme. */
+.sau-workout-vivid {
+  --background: 211 64% 7%;
+  --foreground: 210 40% 98%;
+  --card: 211 49% 12%;
+  --card-foreground: 210 40% 98%;
+  --popover: 211 49% 12%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 79 94% 57%;
+  --primary-foreground: 215 65% 7%;
+  --secondary: 211 37% 22%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 211 38% 22%;
+  --muted-foreground: 211 26% 77%;
+  --accent: 195 70% 24%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 86% 70%;
+  --destructive-foreground: 215 65% 7%;
+  --border: 210 34% 27%;
+  --input: 210 34% 33%;
+  --ring: 192 97% 62%;
+  color: hsl(var(--foreground));
+  color-scheme: dark;
+  background: radial-gradient(ellipse at 95% 100%, #073248 0, transparent 55%), #061422;
+  border-radius: 1rem;
+  padding: .75rem;
+  min-height: min(78dvh, 52rem);
+  overflow-wrap: anywhere;
+}
+.sau-workout-vivid .sau-session-bar {
+  background: linear-gradient(135deg, #0b263c, #081724 80%);
+  border-color: #0789be;
+  box-shadow: 0 4px 18px #00111d55;
+  border-radius: 1rem;
+}
+.sau-workout-vivid .sau-session-clock {
+  background: #12344c;
+  color: #f4faff;
+  letter-spacing: .025em;
+}
+.sau-session-bar[data-sau-paused="true"] [class*="rounded-full"][class*="border"] {
+  background: #512b32;
+  color: #ff9696;
+  border-color: #a94f5b;
+}
+.sau-workout-vivid .sau-exercise-nav {
+  border-color: #34506a;
+  background: #0c2032;
+  border-radius: 1rem;
+}
+.sau-exercise-position { background: #34495d; }
+.sau-exercise-position[data-position="current"] { background: #b5f83e; }
+.sau-workout-vivid .sau-paused-panel {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+.sau-pause-symbol {
+  color: #ff8585;
+  background: #39232d;
+  border: 2px solid #ff8585;
+}
+.sau-workout-vivid .sau-resume-button {
+  background: #b5f83e;
+  color: #102009;
+  border-radius: .9rem;
+}
+.sau-workout-vivid .sau-resume-button:hover:not(:disabled) { background: #c6ff66; }
+.sau-workout-vivid .sau-workout-tools {
+  background: #0b2436;
+  border-color: #0789be;
+  padding-block: 0;
+}
+.sau-workout-vivid .sau-workout-tools[open] { padding-bottom: .75rem; }
+.sau-workout-vivid [data-testid="cch-work-clock"] { border-color: #81bd35; }
+.sau-workout-vivid [data-testid="cch-rest-clock"] { border-color: #19a6d2; }
+.sau-workout-vivid [data-testid="cch-rest-clock"] .font-mono { color: #75e4ff; }
+.sau-workout-vivid :focus-visible { outline: 2px solid #75e4ff; outline-offset: 2px; }
+@media (max-width: 359px) {
+  .sau-workout-vivid { padding: .375rem; }
+  .sau-workout-vivid .sau-session-clock { font-size: .875rem; padding-inline: .375rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sau-workout-vivid *, .sau-workout-vivid *::before, .sau-workout-vivid *::after {
+    transition-duration: .01ms !important;
+  }
+}
