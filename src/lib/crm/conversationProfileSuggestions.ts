@@ -98,7 +98,9 @@ export function proposeCrmConversationProfileFields(
         list.push({ value: plainEmail, id: message.id, date: message.created_at, excerpt: simplify(line).slice(0, 160) });
         unverified.set('email', list);
       }
-      if (plainCep && validCandidate('zip_code', plainCep)) {
+      // CEP explicitamente de cobrança, entrega ou terceiro nunca é pista de CEP principal.
+      const cepIsOtherPurpose = /(?:cobrança|entrega|destinatári[ao]|terceir[ao]|mãe|pai|esposa|marido)/i.test(line);
+      if (plainCep && !cepIsOtherPurpose && validCandidate('zip_code', plainCep)) {
         const list = unverified.get('zip_code') ?? [];
         list.push({ value: plainCep, id: message.id, date: message.created_at, excerpt: simplify(line).slice(0, 160) });
         unverified.set('zip_code', list);
