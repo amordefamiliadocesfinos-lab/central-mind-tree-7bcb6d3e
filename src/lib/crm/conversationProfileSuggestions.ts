@@ -175,13 +175,17 @@ export function proposeCrmConversationProfileFields(
   for (const field of ['email', 'zip_code'] as const) {
     if (candidates.has(field)) continue;
     const entries = unverified.get(field);
-    if (!entries?.length) continue;
-    const ordered = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+    // Não exibir como pista vigente um identificador negado em qualquer mensagem
+    // elegível; a supressão permanece consultiva e nunca autoriza escrita.
+    const eligibleEntries = entries?.filter(entry =>
+      !deniedValues.get(field)?.has(comparable(field, entry.value)));
+    if (!eligibleEntries?.length) continue;
+    const ordered = [...eligibleEntries].sort((a, b) => a.date.localeCompare(b.date));
     const latest = ordered[ordered.length - 1];
     proposals.push({
       field, value: latest.value, messageId: latest.id, createdAt: latest.date,
       evidenceExcerpt: latest.excerpt,
-      distinctValues: new Set(entries.map(entry => comparable(field, entry.value))).size,
+      distinctValues: new Set(eligibleEntries.map(entry => comparable(field, entry.value))).size,
       state: 'unverified', requiresReview: true,
     });
   }
