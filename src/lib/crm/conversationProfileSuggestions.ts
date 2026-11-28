@@ -18,7 +18,7 @@ export interface CrmConversationProfileSuggestion {
   messageId: string;
   createdAt: string;
   evidenceExcerpt: string;
-  state: 'empty' | 'same' | 'conflict' | 'ambiguous';
+  state: 'empty' | 'same' | 'conflict' | 'ambiguous' | 'unverified';
   /** All candidates are advisory, never automatically persisted. */
   requiresReview: true;
 }
@@ -66,6 +66,8 @@ export function proposeCrmConversationProfileFields(
   current: Partial<Record<CrmConversationProfileField, unknown>>,
 ): CrmConversationProfileSuggestion[] {
   const candidates = new Map<CrmConversationProfileField, Array<{ value: string; id: string; date: string; excerpt: string }>>();
+  // Trechos sem declaração explícita de titularidade são apenas pistas consultivas.
+  const unverified = new Map<'email' | 'zip_code', Array<{ value: string; id: string; date: string; excerpt: string }>>();
   // Only direct inbound customer text. Ignore instructions and quoted/agent/AI content.
   for (const message of messages) {
     if (message.sender !== 'customer' || !message.id || !message.created_at || !message.content) continue;
@@ -87,6 +89,20 @@ export function proposeCrmConversationProfileFields(
     // Percorrer cada linha, não apenas a primeira ocorrência da mensagem:
     // correções conflitantes dentro do mesmo envio também exigem revisão.
     for (const line of lines) {
+      // Apenas formatos reconhecíveis; ausência de rótulo não comprova titularidade.
+      // Não inferir CEP de cobrança ou endereço principal a partir de um número solto.
+      const plainEmail = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.exec(line)?.[0];
+      const plainCep = /\b\d{5}-?\d{3}\b/.exec(line)?.[0];
+      if (plainEmail && validCandidate('email', plainEmail)) {
+        const list = unverified.get('email') ?? [];
+        list.push({ value: plainEmail, id: message.id, date: message.created_at, excerpt: simplify(line).slice(0, 160) });
+        unverified.set('email', list);
+      }
+      if (plainCep && validCandidate('zip_code', plainCep)) {
+        const list = unverified.get('zip_code') ?? [];
+        list.push({ value: plainCep, id: message.id, date: message.created_at, excerpt: simplify(line).slice(0, 160) });
+        unverified.set('zip_code', list);
+      }
       for (const field of CRM_CONVERSATION_PROFILE_FIELDS) {
         const found = patterns[field].exec(line);
         if (!found) continue;
@@ -113,6 +129,19 @@ export function proposeCrmConversationProfileFields(
       field, value: latest.value, messageId: latest.id, createdAt: latest.date,
       evidenceExcerpt: latest.excerpt,
       state, requiresReview: true,
+    });
+  }
+  // Evidência de texto livre nunca vira opção de escrita. Se já existe
+  // candidato explícito para o campo, ele prevalece sem duplicação.
+  for (const field of ['email', 'zip_code'] as const) {
+    if (candidates.has(field)) continue;
+    const entries = unverified.get(field);
+    if (!entries?.length) continue;
+    const ordered = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+    const latest = ordered[ordered.length - 1];
+    proposals.push({
+      field, value: latest.value, messageId: latest.id, createdAt: latest.date,
+      evidenceExcerpt: latest.excerpt, state: 'unverified', requiresReview: true,
     });
   }
   return proposals;
