@@ -95,7 +95,7 @@ export function proposeCrmConversationProfileFields(
       // identifica terceiro, corrige ou revoga o valor citado.
       // Excluir a linha inteira evita que o fallback de texto livre reintroduza
       // como pista um dado que a pessoa acabou de negar.
-      const ownershipDenied = /(?:\bn[aã]o\s+(?:é|eh|s[aã]o)\s+(?:(?:o|a|os|as)\s+)?(?:meu|minha|meus|minhas)\b|\b(?:é|eh|pertence)\s+(?:d[ao]|de)\s+(?:(?:minha|meu|um|uma|outr[ao])\s+)?(?:m[aã]e|pai|esposa|marido|filh[ao]|amig[ao]|colega|cliente|terceir[ao]|destinat[aá]ri[ao])\b|\b(?:d[ao]|de)\s+(?:minha|meu)\s+(?:m[aã]e|pai|esposa|marido|filh[ao]|amig[ao]|colega)\b|\b(?:desconsiderar|n[aã]o\s+usar|valor\s+errado|dado\s+incorreto)\b)/i.test(line);
+      const ownershipDenied = /(?:\bn[aã]o\s+(?:é|eh|s[aã]o)\s+(?:(?:o|a|os|as)\s+)?(?:meu|minha|meus|minhas)\b|\b(?:é|eh|pertence)\s+(?:d[ao]|de|ao|à)\s+(?:(?:minha|meu|um|uma|outr[ao])\s+)?(?:m[aã]e|pai|esposa|marido|filh[ao]|amig[ao]|colega|cliente|terceir[ao]|destinat[aá]ri[ao])\b|\b(?:d[ao]|de)\s+(?:minha|meu)\s+(?:m[aã]e|pai|esposa|marido|filh[ao]|amig[ao]|colega)\b|\b(?:desconsiderar|n[aã]o\s+usar|valor\s+errado|dado\s+incorreto)\b)/i.test(line);
       if (ownershipDenied) continue;
       // Apenas formatos reconhecíveis; ausência de rótulo não comprova titularidade.
       // Não inferir CEP de cobrança ou endereço principal a partir de um número solto.
