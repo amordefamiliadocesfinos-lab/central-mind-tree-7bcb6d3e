@@ -365,3 +365,24 @@ test('B13 unrelated denied value does not suppress valid labelled evidence', () 
   assert.equal(result[0].state, 'empty');
   assert.equal(result[0].value, 'cliente@example.com');
 });
+
+test('B14 excludes a subsequently revoked free-text email and CEP', () => {
+  const result = proposeCrmConversationProfileFields([
+    msg('hint', 'customer', 'Pode usar livre@example.com e 88220-000', '2026-11-27T12:00:00Z'),
+    msg('deny', 'customer', 'E-mail: livre@example.com não é meu' + String.fromCharCode(10) + 'CEP: 88220-000, desconsiderar', '2026-11-27T13:00:00Z'),
+  ], {});
+  assert.equal(result.find(item => item.field === 'email'), undefined);
+  assert.equal(result.find(item => item.field === 'zip_code'), undefined);
+});
+
+test('B14 preserves only unrelated unverified hints, without enabling writes', () => {
+  const result = proposeCrmConversationProfileFields([
+    msg('hint', 'customer', 'E-mails: negado@example.com ou livre@example.com'),
+    msg('deny', 'customer', 'E-mail: negado@example.com pertence ao meu pai', '2026-11-27T14:00:00Z'),
+  ], {});
+  const email = result.find(item => item.field === 'email');
+  assert.equal(email?.state, 'unverified');
+  assert.equal(email?.value, 'livre@example.com');
+  assert.equal(email?.distinctValues, 1);
+  assert.equal(email?.requiresReview, true);
+});
