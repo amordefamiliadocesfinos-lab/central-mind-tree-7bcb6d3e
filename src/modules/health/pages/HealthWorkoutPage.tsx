@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import "./health-workout-vivid.css";
 import { Link } from "react-router-dom";
 import { Activity, CheckCircle2, Dumbbell, Loader2, Pencil, Plus, RefreshCw, Save, SkipForward, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -486,7 +487,7 @@ export function HealthWorkoutPage() {
   const focusMode = timer.available && expandedSessionId !== sessionId;
 
   return (
-    <div className="space-y-3 pb-4" data-cch-focus={focusMode ? "true" : undefined}>
+    <div className="sau-workout-vivid space-y-3 pb-4" data-cch-focus={focusMode ? "true" : undefined}>
       <HealthWorkoutInteractiveTimerF19
         focusMode={focusMode}
         onToggleFocus={() => setExpandedSessionId(focusMode ? sessionId : null)}
@@ -505,8 +506,8 @@ export function HealthWorkoutPage() {
         onConfirmEquipment={workout.confirmEquipment}
       />
 
-      <details className="rounded-xl border bg-muted/10 p-3" data-testid="cch-advanced-tools">
-        <summary className="cursor-pointer text-sm font-medium">
+      <details className="sau-workout-tools rounded-xl border bg-muted/10 p-3" data-testid="cch-advanced-tools">
+        <summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold">
           Mais opções · Correções e ferramentas
         </summary>
         <p className="mt-2 text-xs text-muted-foreground">
