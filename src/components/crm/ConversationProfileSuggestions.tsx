@@ -27,6 +27,7 @@ const states = {
   same: 'Já cadastrado',
   conflict: 'Diferente do cadastro — não substituir',
   ambiguous: 'Informações divergentes na conversa — revisar',
+  unverified: 'Texto livre: titularidade não comprovada — somente conferência, não pode preencher',
 };
 
 export function ConversationProfileSuggestions({
