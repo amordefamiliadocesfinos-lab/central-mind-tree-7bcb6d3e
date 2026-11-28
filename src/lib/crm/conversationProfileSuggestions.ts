@@ -72,7 +72,7 @@ export function proposeCrmConversationProfileFields(
   // Trechos sem declaração explícita de titularidade são apenas pistas consultivas.
   const unverified = new Map<'email' | 'zip_code', Array<{ value: string; id: string; date: string; excerpt: string }>>();
   // Valores posteriormente negados continuam inválidos mesmo se apareceram antes como rotulados.
-  const deniedValues = new Map<'email' | 'zip_code', Map<string, string>>();
+  const deniedValues = new Map<'email' | 'zip_code' | 'phone', Map<string, string>>();
   // Retratações anafóricas sem valor literal bloqueiam a sugestão anterior do campo.
   const fieldLevelDenials = new Map<'email' | 'zip_code' | 'phone', string>();
   // Only direct inbound customer text. Ignore instructions and quoted/agent/AI content.
@@ -131,6 +131,13 @@ export function proposeCrmConversationProfileFields(
           if (!denied.has(key) || message.created_at > denied.get(key)!) denied.set(key, message.created_at);
           deniedValues.set('email', denied);
         }
+        const deniedPhone = patterns.phone.exec(line)?.[1];
+        if (deniedPhone && validCandidate('phone', deniedPhone)) {
+          const denied = deniedValues.get('phone') ?? new Map<string, string>();
+          const key = comparable('phone', deniedPhone);
+          if (!denied.has(key) || message.created_at > denied.get(key)!) denied.set(key, message.created_at);
+          deniedValues.set('phone', denied);
+        }
         for (const cep of line.match(/\b\d{5}-?\d{3}\b/g) ?? []) {
           const denied = deniedValues.get('zip_code') ?? new Map<string, string>();
           const key = comparable('zip_code', cep);
@@ -188,7 +195,7 @@ export function proposeCrmConversationProfileFields(
     const oldValue = String(current[field] ?? '').trim();
     // Considerar a cronologia, não apenas a presença do valor em uma negação antiga:
     // nova declaração explícita do mesmo identificador pode vir depois.
-    const deniedCandidate = (field === 'email' || field === 'zip_code')
+    const deniedCandidate = (field === 'email' || field === 'zip_code' || field === 'phone')
       && Boolean(deniedValues.get(field)?.get(comparable(field, latest.value))
         && deniedValues.get(field)!.get(comparable(field, latest.value))! >= latest.date);
     const deniedAfterLatest = (field === 'email' || field === 'zip_code' || field === 'phone')
