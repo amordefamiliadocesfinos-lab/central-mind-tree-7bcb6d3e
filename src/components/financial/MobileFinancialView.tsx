@@ -6,7 +6,7 @@ import { ptBR } from 'date-fns/locale';
 import {
   Plus, Search, TrendingUp, TrendingDown, Wallet, Receipt, MoreVertical,
   Edit, Trash2, CheckCircle2, FileText, Tag, Users, ArrowLeft, CalendarIcon,
-  DollarSign, ChevronRight, Filter,
+  DollarSign, ChevronRight, Filter, ArrowRightLeft, ShoppingBag,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +24,7 @@ import {
   FinancialEntry, EntryStatus, getEntryStatus, FinancialCategory, FinancialAccount,
 } from '@/hooks/useFinancial';
 import { PaymentDialog } from './PaymentDialog';
+import { MarketplaceSettlementDialog } from './MarketplaceSettlementDialog';
 import {
   FinancialDashboard, AccountsManager, CategoriesManager, ContactsManager, InvoicesManager,
 } from './index';
@@ -40,6 +41,7 @@ interface Props {
   onUpdateEntry: (id: string, data: any) => Promise<void>;
   onDeleteEntry: (id: string) => Promise<void>;
   onRegisterPayment: (id: string, value: number, accountId?: string, notes?: string, paymentDate?: string) => Promise<void>;
+  onRefreshEntries?: () => void;
   onSaveAccount: (data: any) => Promise<any>;
   onSaveCategory: (data: any) => Promise<any>;
 }
@@ -64,10 +66,12 @@ const STATUS_LABELS: Record<EntryStatus, string> = {
 export function MobileFinancialView({
   entries, categories, accounts, filters,
   onPeriodChange, onCreateEntry, onUpdateEntry, onDeleteEntry, onRegisterPayment,
-  onSaveAccount, onSaveCategory,
+  onSaveAccount, onSaveCategory, onRefreshEntries,
 }: Props) {
   const [section, setSection] = useState<Section>('resumo');
   const [subSection, setSubSection] = useState<SubSection | null>(null);
+  const [quickTransfer, setQuickTransfer] = useState(false);
+  const [settlementOpen, setSettlementOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<EntryStatus | 'all'>('all');
   const [channelFilter, setChannelFilter] = useState('all');
@@ -223,6 +227,8 @@ export function MobileFinancialView({
           {subSection === 'contas' && (
             <AccountsManager
               accounts={accounts}
+              quickTransfer={quickTransfer}
+              onQuickTransferConsumed={() => setQuickTransfer(false)}
               onSave={onSaveAccount}
               startDate={filters.startDate}
               endDate={filters.endDate}
@@ -273,7 +279,15 @@ export function MobileFinancialView({
 
       {/* Section content */}
       {section === 'resumo' && (
-        <ResumoView totals={totals} cash={cash} onOpenDashboard={() => {/* dashboard tab */}} />
+        <>
+          <section aria-label="Operações rápidas" className="grid grid-cols-2 gap-2 px-3 pt-3">
+            <Button variant="outline" className="h-auto py-3 justify-start gap-2 text-xs" onClick={() => openCreate('receber')}><TrendingUp className="h-4 w-4 text-emerald-600" /> Nova conta a receber</Button>
+            <Button variant="outline" className="h-auto py-3 justify-start gap-2 text-xs" onClick={() => openCreate('pagar')}><TrendingDown className="h-4 w-4 text-red-500" /> Nova conta a pagar</Button>
+            <Button variant="outline" className="h-auto py-3 justify-start gap-2 text-xs" onClick={() => { setQuickTransfer(true); setSubSection('contas'); }}><ArrowRightLeft className="h-4 w-4 text-blue-600" /> Transferir</Button>
+            <Button variant="outline" className="h-auto py-3 justify-start gap-2 text-xs" onClick={() => setSettlementOpen(true)}><ShoppingBag className="h-4 w-4 text-orange-600" /> Conciliar repasse</Button>
+          </section>
+          <ResumoView totals={totals} cash={cash} onOpenDashboard={() => {/* dashboard tab */}} />
+        </>
       )}
 
       {section === 'mais' && (
@@ -389,6 +403,8 @@ export function MobileFinancialView({
           <NavBtn icon={<MoreVertical className="h-5 w-5" />} label="Mais" active={section==='mais'} onClick={() => setSection('mais')} />
         </div>
       </nav>
+
+      {settlementOpen && <MarketplaceSettlementDialog open={settlementOpen} onOpenChange={setSettlementOpen} onChanged={onRefreshEntries} />}
 
       {/* Quick entry form (sheet) */}
       <Sheet open={formOpen} onOpenChange={(o) => { setFormOpen(o); if (!o) resetForm(); }}>
