@@ -23,6 +23,7 @@ import { cn, formatCurrency } from '@/lib/utils';
 import {
   FinancialEntry, EntryStatus, getEntryStatus, FinancialCategory, FinancialAccount,
 } from '@/hooks/useFinancial';
+import { ShopeeReceiptAssistDialog } from './ShopeeReceiptAssistDialog';
 import { GlobalFinancialSearchDialog } from './GlobalFinancialSearchDialog';
 import { PaymentDialog } from './PaymentDialog';
 import { MarketplaceSettlementDialog } from './MarketplaceSettlementDialog';
@@ -69,6 +70,7 @@ export function MobileFinancialView({
   onPeriodChange, onCreateEntry, onUpdateEntry, onDeleteEntry, onRegisterPayment,
   onSaveAccount, onSaveCategory, onRefreshEntries,
 }: Props) {
+  const [receiptAssistOpen,setReceiptAssistOpen]=useState(false);
   const [globalSearchOpen,setGlobalSearchOpen]=useState(false);
   const [section, setSection] = useState<Section>('resumo');
   const [subSection, setSubSection] = useState<SubSection | null>(null);
@@ -280,6 +282,7 @@ export function MobileFinancialView({
       </div>
 
       <div className="px-3 pt-3"><Button variant="outline" className="w-full justify-start gap-2" onClick={()=>setGlobalSearchOpen(true)}><Search className="h-4 w-4"/>Pesquisar todos os períodos</Button></div>
+      {receiptAssistOpen && <ShopeeReceiptAssistDialog open={receiptAssistOpen} onOpenChange={setReceiptAssistOpen}/>}
       {globalSearchOpen && <GlobalFinancialSearchDialog open={globalSearchOpen} onOpenChange={setGlobalSearchOpen}/>}
       {/* Section content */}
       {section === 'resumo' && (
@@ -289,6 +292,7 @@ export function MobileFinancialView({
             <Button variant="outline" className="h-auto py-3 justify-start gap-2 text-xs" onClick={() => openCreate('pagar')}><TrendingDown className="h-4 w-4 text-red-500" /> Nova conta a pagar</Button>
             <Button variant="outline" className="h-auto py-3 justify-start gap-2 text-xs" onClick={() => { setQuickTransfer(true); setSubSection('contas'); }}><ArrowRightLeft className="h-4 w-4 text-blue-600" /> Transferir</Button>
             <Button variant="outline" className="h-auto py-3 justify-start gap-2 text-xs" onClick={() => setSettlementOpen(true)}><ShoppingBag className="h-4 w-4 text-orange-600" /> Conciliar repasse</Button>
+          <Button variant="outline" className="h-auto py-3 justify-start gap-2" onClick={()=>setReceiptAssistOpen(true)}><ShoppingBag className="h-4 w-4 text-orange-600"/> Recebimento Shopee</Button>
           </section>
           <ResumoView totals={totals} cash={cash} onOpenDashboard={() => {/* dashboard tab */}} />
         </>
