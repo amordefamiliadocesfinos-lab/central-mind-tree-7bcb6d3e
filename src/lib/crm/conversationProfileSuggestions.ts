@@ -234,3 +234,37 @@ export function proposeCrmConversationProfileFields(
   }
   return proposals;
 }
+
+/** Resultado consultivo pós-writer, baseado no registro devolvido pelo banco. */
+export interface CrmConversationSaveReport {
+  filled: CrmConversationProfileField[];
+  ignored: CrmConversationProfileField[];
+  pending: CrmConversationProfileField[];
+}
+
+export function buildCrmConversationSaveReport(
+  proposals: readonly CrmConversationProfileSuggestion[],
+  selected: readonly CrmConversationProfileField[],
+  changedFields: readonly string[],
+  persisted: Partial<Record<CrmConversationProfileField, unknown>>,
+): CrmConversationSaveReport {
+  const selectedSet = new Set(selected);
+  const changedSet = new Set(changedFields);
+  const report: CrmConversationSaveReport = { filled: [], ignored: [], pending: [] };
+  for (const item of proposals) {
+    if (selectedSet.has(item.field)) {
+      // O writer retorna a linha persistida; não anunciar sucesso se discordar
+      // da proposta ou se não reportou a alteração como confirmada.
+      if (changedSet.has(item.field) && comparable(item.field, String(persisted[item.field] ?? '')) === comparable(item.field, item.value)) {
+        report.filled.push(item.field);
+      } else {
+        report.pending.push(item.field);
+      }
+    } else if (item.state === 'empty' || item.state === 'same') {
+      report.ignored.push(item.field);
+    } else {
+      report.pending.push(item.field);
+    }
+  }
+  return report;
+}
