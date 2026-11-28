@@ -2,7 +2,8 @@
 -- No new queue or lease. The eventual authenticated policy writer must take
 -- the same per-account lock and append a revision; no such writer exists here.
 ALTER TABLE public.shopee_cycle_state ADD COLUMN lease_policy_revision integer
-  CHECK (lease_policy_revision IS NULL OR lease_policy_revision>0);
+  CHECK (lease_policy_revision IS NULL OR lease_policy_revision>0),
+ ADD COLUMN d11_next_discovery boolean NOT NULL DEFAULT true;
 
 CREATE FUNCTION public.read_shopee_cycle_policy(p_channel_account_id uuid)
 RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path=public,pg_temp AS $$
