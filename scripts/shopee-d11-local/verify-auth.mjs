@@ -96,6 +96,13 @@ for(const token of [anon,a.token,b.token,c.token]){
  assert.ok((await effect('commit_shopee_d11_intake',intake,token,anon)).status>=400);
  assert.ok((await effect('create_shopee_api_order',{p_order:projection,p_items:projection.items},token,anon)).status>=400);
 }
+// Verify effective table boundaries and RPC privilege, independently of HTTP status.
+assert.equal(sql("SELECT count(*) FROM pg_class WHERE oid IN ('public.orders'::regclass,'public.order_items'::regclass,'public.order_separation'::regclass,'public.marketplace_product_mappings'::regclass,'public.marketplace_product_mapping_items'::regclass,'public.products'::regclass,'public.product_variants'::regclass,'public.commercial_presentations'::regclass) AND relrowsecurity"),'8');
+for(const role of ['anon','authenticated']){
+ assert.equal(sql("SELECT has_function_privilege('"+role+"','public.commit_shopee_d11_intake(uuid,uuid,integer,uuid,jsonb)','EXECUTE')"),'f');
+ assert.equal(sql("SELECT has_table_privilege('"+role+"','public.orders','INSERT') OR has_table_privilege('"+role+"','public.order_items','INSERT') OR has_table_privilege('"+role+"','public.order_separation','INSERT')"),'f');
+}
+assert.equal(sql("SELECT has_function_privilege('service_role','public.commit_shopee_d11_intake(uuid,uuid,integer,uuid,jsonb)','EXECUTE')"),'t');
 const before=()=>sql("SELECT count(*) FROM public.orders WHERE channel_account_id='"+account+"'");
 assert.equal(before(),'0');
 assert.equal((await effect('commit_shopee_d11_intake',{...intake,p_observation:crypto.randomUUID()})).data.status,'intake_observation_refused');
