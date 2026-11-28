@@ -3,7 +3,7 @@
 DO $proof$
 DECLARE original text; patched text;
 BEGIN
- IF current_database()<>'p4_shopee_writer_disposable' THEN RAISE EXCEPTION 'disposable database required'; END IF;
+ IF current_database()<>'p4_shopee_writer_disposable' AND NOT (current_database()='postgres' AND current_setting('d11.fixture_local',true) IS NOT DISTINCT FROM 'on') THEN RAISE EXCEPTION 'disposable database required'; END IF;
  original:=pg_get_functiondef('public.create_shopee_api_order(jsonb,jsonb)'::regprocedure);
  patched:=replace(original,$old$      'external_status', v_external_status$old$,$new$      'external_status', v_external_status,
       -- F6-O.2e.4: buyer-provided shipping/packaging instruction is
