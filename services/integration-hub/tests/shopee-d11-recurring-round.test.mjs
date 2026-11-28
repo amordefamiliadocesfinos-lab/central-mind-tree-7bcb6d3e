@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {handleRequest} from '../src/app.mjs';
 import {createD11RecurringRound,createD11ScheduledCycle} from '../src/shopee-d11-recurring-round.mjs';
 const A='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',L='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',I='cccccccc-cccc-4ccc-8ccc-cccccccccccc',O='dddddddd-dddd-4ddd-8ddd-dddddddddddd',S='D11SYNTHETIC1',N=Date.parse('2026-11-28T12:00:00Z');
 function fixture(){
@@ -64,4 +65,17 @@ test('D11 shared scheduler selects account by Core with no request identity',asy
  assert.deepEqual(calls,['select',{accountId:A,discoveryTurn:true}]);
  calls.length=0;competing=true;assert.equal((await run()).code,'d11_competing_writer_enabled');assert.deepEqual(calls,[]);
  competing=false;flag='false';assert.equal((await run()).code,'d11_cycle_disabled');
+});
+
+test('D11 private route is default off and rejects caller identity, body and query',async()=>{
+ let enabled=false,calls=0;
+ const deps={handleShopeeLive:async()=>null,getEnv:k=>k==='SHOPEE_D11_RECURRING_ENABLED'&&enabled?'true':undefined,
+  runD11:async(...args)=>{assert.deepEqual(args,[]);calls++;return {ok:true,code:'label_attached',ordersWritten:0,effects:0,queueOutcome:'complete',physicalHandoffConfirmed:false};}};
+ const request={path:'/internal/shopee/d11/cycle/run',method:'POST',headers:{'content-length':'0'}};
+ assert.equal((await handleRequest(request,deps)).status,503);enabled=true;
+ for(const q of [{...request,method:'GET'},{...request,query:{accountId:A}},{...request,body:'{}'},{...request,headers:{'transfer-encoding':'chunked'}}])
+  assert.ok([400,405].includes((await handleRequest(q,deps)).status));
+ assert.equal(calls,0);
+ const r=await handleRequest(request,deps);assert.equal(r.status,200);assert.equal(calls,1);
+ assert.deepEqual(JSON.parse(r.body),{status:'ok',code:'label_attached',orders_written:0,effects:0,queue_outcome:'complete',reconciliation_required:false,physical_handoff_confirmed:false});
 });
