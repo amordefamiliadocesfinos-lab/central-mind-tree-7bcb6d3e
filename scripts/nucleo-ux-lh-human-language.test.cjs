@@ -54,3 +54,20 @@ const evidence=fs.readFileSync("src/components/nucleo/NucleoTechnicalEvidence.ts
 assert(evidence.includes('observado: "Observado", verificado: "Verificado na origem"'));
 assert(evidence.includes("Identificação técnica: {record.external_key}"));
 assert(evidence.includes('record.registration_origin === "administrativo_lovable"'));
+
+// LH06 residual: a readable failure has a next action, preserves diagnostic
+// categories and cannot expose the raw response or token.
+const readFailureSource=fs.readFileSync("src/components/nucleo/NucleoAc02ContinuityRead.tsx","utf8");
+const failureStart=readFailureSource.indexOf("function explainAc02ReadFailure(");
+const failureEnd=readFailureSource.indexOf("// Apenas classes textuais",failureStart);
+assert(failureStart>=0&&failureEnd>failureStart);
+const failure=vm.runInNewContext(ts.transpileModule(readFailureSource.slice(failureStart,failureEnd)+"\nexplainAc02ReadFailure;",{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText);
+for(const [status,phrase] of [[401,"Entre novamente"],[403,"Procure o responsável pelo acesso"],[404,"Solicite uma verificação"],[400,"a conferência do módulo"],[413,"a conferência do módulo"],[500,"Tente novamente"],[503,"Tente novamente"],[418,"Procure o responsável"]]){
+ const result=failure({name:"FunctionsHttpError",context:{status,body:"TOKEN-PRIVADO"},message:"TOKEN-PRIVADO"});
+ assert(result.includes(phrase)&&result.includes("HTTP "+status), "Human next action and diagnostic status "+status);
+ assert(!result.includes("TOKEN-PRIVADO"));
+ assert(!/JWT|nucleo_manage|endpoint|gateway/.test(result));
+}
+assert(failure({name:"FunctionsFetchError",message:"TOKEN-PRIVADO"}).includes("Confira a internet"));
+assert(failure({name:"FunctionsRelayError"}).includes("Tente novamente"));
+assert(failure(null).includes("Nenhum contexto foi preparado"));
