@@ -5,6 +5,7 @@
  */
 export const CRM_CONVERSATION_PROFILE_FIELDS = ['name', 'email', 'phone', 'zip_code', 'city', 'address', 'address_number', 'address_complement', 'neighborhood', 'billing_zip_code', 'billing_city', 'billing_address', 'billing_number', 'billing_neighborhood'] as const;
 export type CrmConversationProfileField = typeof CRM_CONVERSATION_PROFILE_FIELDS[number];
+export const CRM_CONVERSATION_MESSAGE_TEXT_LIMIT = 4000;
 
 export interface CrmConversationProfileMessage {
   id: string;
@@ -77,7 +78,9 @@ export function proposeCrmConversationProfileFields(
   // Only direct inbound customer text. Ignore instructions and quoted/agent/AI content.
   for (const message of messages) {
     if (message.sender !== 'customer' || !message.id || !message.created_at || !message.content) continue;
-    const body = message.content.slice(0, 4000);
+    // Não extrair um trecho que pode ocultar correções ou autoria no final.
+    if (message.content.length > CRM_CONVERSATION_MESSAGE_TEXT_LIMIT) continue;
+    const body = message.content;
     // Blocos de terceiros frequentemente têm cabeçalho seguido de rótulos comuns
     // (Nome completo, E-mail, Cidade). Não os atribuir automaticamente ao titular.
     const headerLines = body.split(/\r?\n/);
