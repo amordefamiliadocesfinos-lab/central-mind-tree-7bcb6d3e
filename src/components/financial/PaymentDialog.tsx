@@ -8,30 +8,39 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { FinancialEntry, FinancialAccount } from '@/hooks/useFinancial';
 import { formatCurrency } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
+import { format } from 'date-fns';
 
 interface PaymentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   entry: FinancialEntry;
   accounts: FinancialAccount[];
-  onConfirm: (value: number, accountId?: string, notes?: string) => Promise<void>;
+  onConfirm: (value: number, accountId?: string, notes?: string, paymentDate?: string) => Promise<void>;
+  partial?: boolean;
+  onAdvanced?: () => void;
 }
 
-export function PaymentDialog({ open, onOpenChange, entry, accounts, onConfirm }: PaymentDialogProps) {
+export function PaymentDialog({ open, onOpenChange, entry, accounts, onConfirm, partial = false, onAdvanced }: PaymentDialogProps) {
   const remaining = entry.value - entry.value_paid;
-  const [value, setValue] = useState(remaining.toString());
+  const [value, setValue] = useState(partial ? '' : remaining.toString());
   const [accountId, setAccountId] = useState(entry.account_id || '');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
+  const [paymentDate, setPaymentDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [error, setError] = useState('');
+  const validAccount = accounts.some(a => a.id === accountId && a.is_active);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const numValue = parseFloat(value);
-    if (isNaN(numValue) || numValue <= 0) return;
+    if (loading || !validAccount || !paymentDate || !Number.isFinite(numValue) || numValue <= 0 || numValue > remaining) return;
+    setError('');
 
     setLoading(true);
     try {
-      await onConfirm(numValue, accountId || undefined, notes || undefined);
+      await onConfirm(numValue, accountId, notes || undefined, paymentDate);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível confirmar a baixa. Confira o lançamento antes de tentar novamente.');
     } finally {
       setLoading(false);
     }
@@ -42,7 +51,7 @@ export function PaymentDialog({ open, onOpenChange, entry, accounts, onConfirm }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={next => { if (!loading) onOpenChange(next); }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Registrar {entry.type === 'pagar' ? 'Pagamento' : 'Recebimento'}</DialogTitle>
@@ -84,13 +93,13 @@ export function PaymentDialog({ open, onOpenChange, entry, accounts, onConfirm }
           </div>
 
           <div className="space-y-2">
-            <Label>Conta</Label>
+            <Label>Conta financeira *</Label>
             <Select value={accountId} onValueChange={setAccountId}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecionar conta..." />
               </SelectTrigger>
               <SelectContent>
-                {accounts.map((acc) => (
+                {accounts.filter(acc => acc.is_active).map((acc) => (
                   <SelectItem key={acc.id} value={acc.id}>
                     {acc.name} ({formatCurrency(acc.current_balance)})
                   </SelectItem>
@@ -100,6 +109,11 @@ export function PaymentDialog({ open, onOpenChange, entry, accounts, onConfirm }
           </div>
 
           <div className="space-y-2">
+            <Label>Data da movimentação *</Label>
+            <Input type="date" required value={paymentDate} onChange={e => setPaymentDate(e.target.value)} />
+          </div>
+          <details className="space-y-2">
+            <summary className="cursor-pointer text-sm text-muted-foreground">Adicionar observações</summary>
             <Label>Observações</Label>
             <Textarea
               value={notes}
@@ -107,13 +121,15 @@ export function PaymentDialog({ open, onOpenChange, entry, accounts, onConfirm }
               placeholder="Observações da baixa..."
               rows={2}
             />
-          </div>
+          </details>
+          {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+          {onAdvanced && <Button type="button" variant="link" disabled={loading} onClick={onAdvanced}>Opções avançadas de baixa</Button>}
 
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" disabled={loading} onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading || !validAccount || !paymentDate || !value}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Confirmar Baixa
             </Button>
