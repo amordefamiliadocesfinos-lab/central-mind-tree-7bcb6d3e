@@ -37,7 +37,8 @@ BEGIN
     THEN RETURN jsonb_build_object('status','account_refused'); END IF;
   END IF;
   INSERT INTO public.shopee_cycle_state(channel_account_id,time_from,time_to)
-    VALUES(p_channel_account_id,v_now-7*86400,v_now-30) ON CONFLICT DO NOTHING;
+    VALUES(p_channel_account_id,CASE WHEN v_legacy THEN v_now-7*86400 ELSE
+      greatest(v_now-7*86400,least((v_policy->>'history_cutoff')::bigint,v_now-31)) END,v_now-30) ON CONFLICT DO NOTHING;
   SELECT * INTO v FROM public.shopee_cycle_state
     WHERE channel_account_id=p_channel_account_id FOR UPDATE;
   IF NOT v_legacy THEN
