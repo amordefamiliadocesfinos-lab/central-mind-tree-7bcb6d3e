@@ -18,6 +18,8 @@ export function createD11BridgeAdapters({call=callCoreBridgeAction,enabled=false
    channel_account_id:p.p_account,lease_id:p.p_lease,revision:p.p_revision,
    shop_id:p.p_shop,order_sn:p.p_order,payload_hash:p.p_hash,payload:p.p_payload,
    official_request_id:p.p_request,request_started_at:p.p_started,response_received_at:p.p_received}),
+  readIntake:p=>invoke('shopee.d11.intake.read',{...scopeData(p),observation_id:p.observationId}),
+  commitIntake:(p,projection)=>invoke('shopee.d11.intake.commit',{...scopeData(p),observation_id:p.observationId,projection}),
   readReconciliation:p=>invoke('shopee.d11.reconcile.read',{...scopeData(p),observation_id:p.observationId}),
   verifyReconciliation:(p,projection)=>invoke('shopee.d11.reconcile.verify',{
    ...scopeData(p),observation_id:p.observationId,projection}),
