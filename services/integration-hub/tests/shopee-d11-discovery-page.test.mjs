@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createD11DiscoveryPage} from '../src/shopee-d11-discovery-page.mjs';
+import {createD11DiscoveryPage,createD11DiscoveryRound} from '../src/shopee-d11-discovery-page.mjs';
 import {sha256Hex} from '../src/core-bridge.mjs';
 const A='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',L='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',S='D11NEW0001';
 const N=Date.parse('2026-11-27T22:00:00Z'), sec=N/1000,iso=t=>new Date(t).toISOString(), args={accountId:A,leaseId:L,revision:1};
@@ -41,4 +41,15 @@ test('D11 missing checkpoint acknowledgement is uncertain and never retried',asy
 test('D11 disabled and legacy accounts cannot reach discovery',async()=>{
  assert.equal((await createD11DiscoveryPage()(args)).code,'d11_discovery_disabled');
  const f=fixture();assert.equal((await f.run({...args,accountId:'b4027369-5abf-4ac1-ab24-862334fae892'})).ok,false);assert.deepEqual(f.calls,[]);
+});
+
+test('D11 discovery round shares acquisition and never releases again after checkpoint uncertainty',async()=>{
+ for(const mode of ['ok','invalid','uncertain']){
+ const calls=[],round=createD11DiscoveryRound({enabled:true,now:()=>N,
+ adapters:{acquirePreflight:async a=>{assert.equal(a,A);calls.push('acquire');return {status:'acquired',channel_account_id:A,lease_id:L,policy_revision:1,candidate_order_sn:null,expires_at:iso(N+120000),work_budget_ms:48000}},
+ finishPreflight:async(p,c)=>{calls.push('release');assert.equal(c,'d11_preflight_no_candidate');return {status:'finished'}}},
+ discover:async p=>{calls.push('discover');assert.deepEqual(p,{...args,deadline:N+48000});
+ return mode==='ok'?{ok:true,code:'d11_discovery_checkpointed',leaseReleased:true,ordersWritten:0,effects:0}:mode==='uncertain'?{ok:false,checkpointAttempted:true}:{ok:false,code:'d11_discovery_page_unconfirmed'};}});
+ const r=await round({accountId:A});assert.equal(r.ok,mode==='ok');assert.deepEqual(calls,mode==='invalid'?['acquire','discover','release']:['acquire','discover']);
+ }
 });
