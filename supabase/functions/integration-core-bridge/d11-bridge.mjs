@@ -7,7 +7,7 @@ const SN=/^[A-Za-z0-9]{8,100}$/;
 const HASH=/^[0-9a-f]{64}$/;
 const LEGACY=new Set(['8a8ad166-0317-4597-8be6-e43fb46b4d1b','b4027369-5abf-4ac1-ab24-862334fae892']);
 const scopeKeys=['channel_account_id','lease_id','revision'];
-export const D11_ACTIONS=Object.freeze(['shopee.d11.scope.read','shopee.d11.observation.record','shopee.d11.effect.claim','shopee.d11.reconcile.read','shopee.d11.reconcile.verify','shopee.d11.preflight.acquire','shopee.d11.preflight.finish','shopee.d11.discovery.scope','shopee.d11.discovery.finish','shopee.d11.intake.read','shopee.d11.intake.commit','shopee.d11.effect.scope','shopee.d11.effect.resolve']);
+export const D11_ACTIONS=Object.freeze(['shopee.d11.scope.read','shopee.d11.observation.record','shopee.d11.effect.claim','shopee.d11.reconcile.read','shopee.d11.reconcile.verify','shopee.d11.preflight.acquire','shopee.d11.preflight.finish','shopee.d11.discovery.scope','shopee.d11.discovery.finish','shopee.d11.intake.read','shopee.d11.intake.commit','shopee.d11.effect.scope','shopee.d11.effect.resolve','shopee.d11.account.select','shopee.d11.refresh.scope']);
 export function isD11BridgeActionEnabled(action,getEnv){
  return D11_ACTIONS.includes(action)&&getEnv('SHOPEE_D11_BRIDGE_ENABLED')==='true'
   &&(action!=='shopee.d11.effect.claim'||getEnv('SHOPEE_D11_EFFECT_CLAIM_ENABLED')==='true')
@@ -20,18 +20,19 @@ const exact=(v,keys)=>object(v)&&Object.keys(v).length===keys.length&&keys.every
 const positive=v=>Number.isSafeInteger(v)&&v>0;
 const iso=v=>typeof v==='string'&&v.length<=40&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/.test(v)&&Number.isFinite(Date.parse(v));
 export function validateD11Payload(p){
+ if(object(p)&&p.action===D11_ACTIONS[13])return exact(p,['action']);
  if(!object(p)||!D11_ACTIONS.includes(p.action)||!id(p.channel_account_id)||LEGACY.has(p.channel_account_id.toLowerCase()) )return false;
  if(p.action===D11_ACTIONS[5])return exact(p,['action','channel_account_id']);
  if(!id(p.lease_id)||!positive(p.revision))return false;
  const base=['action',...scopeKeys];
- if(p.action===D11_ACTIONS[0]||p.action===D11_ACTIONS[7])return exact(p,base);
+ if(p.action===D11_ACTIONS[0]||p.action===D11_ACTIONS[7]||p.action===D11_ACTIONS[14])return exact(p,base);
  if(p.action===D11_ACTIONS[8])return exact(p,[...base,'list_hash','detail_hashes'])&&text(p.list_hash,HASH)
   &&object(p.detail_hashes)&&Object.keys(p.detail_hashes).length<=5
   &&Object.entries(p.detail_hashes).every(([k,v])=>text(k,SN)&&text(v,HASH));
  if(p.action===D11_ACTIONS[6])return exact(p,[...base,'candidate_order_sn','code'])
   &&(p.candidate_order_sn===null||text(p.candidate_order_sn,SN))
-  &&['d11_preflight_verified_existing','d11_preflight_no_candidate','d11_preflight_scope_refused','d11_preflight_budget_exhausted','d11_preflight_observation_refused','d11_preflight_reconciliation_refused','d11_preflight_unavailable','d11_intake_written','d11_effect_pending','d11_effect_requires_review','d11_label_available'].includes(p.code)
-  &&((p.candidate_order_sn===null)===(p.code==='d11_preflight_no_candidate'));
+  &&['d11_preflight_verified_existing','d11_preflight_no_candidate','d11_preflight_scope_refused','d11_preflight_budget_exhausted','d11_preflight_observation_refused','d11_preflight_reconciliation_refused','d11_preflight_unavailable','d11_intake_written','d11_effect_pending','d11_effect_requires_review','d11_label_available','d11_oauth_refreshed','d11_oauth_refresh_not_admitted','cycle_refresh_or_discovery_uncertain'].includes(p.code)
+  &&(['d11_oauth_refreshed','d11_oauth_refresh_not_admitted','cycle_refresh_or_discovery_uncertain'].includes(p.code)||((p.candidate_order_sn===null)===(p.code==='d11_preflight_no_candidate')));
  if(p.action===D11_ACTIONS[3]||p.action===D11_ACTIONS[9])return exact(p,[...base,'observation_id'])&&id(p.observation_id);
  if(p.action===D11_ACTIONS[4]||p.action===D11_ACTIONS[10])return exact(p,[...base,'observation_id','projection'])&&id(p.observation_id)&&object(p.projection);
  if(p.action===D11_ACTIONS[11])return exact(p,[...base,'observation_id','effect'])&&id(p.observation_id)&&['ship','label'].includes(p.effect);
@@ -50,6 +51,15 @@ const unavailable=()=>({status:503,body:{error:'d11_bridge_unavailable'}});
 export async function executeD11BridgeAction(core,p,{enabled=false,now=Date.now,readPolicy=readCyclePolicy,checkLease=checkCyclePolicyLease,prepareReconciliation=createProtectedReconciliationReader}={}){
  if(enabled!==true)return {status:503,body:{error:'d11_bridge_not_enabled'}};
  if(!validateD11Payload(p))return {status:400,body:{error:'invalid_request'}};
+ if(p.action===D11_ACTIONS[13]){
+  try{
+   const r=await core.rpc('select_shopee_d11_account');
+   if(r.error)return unavailable();
+   if(r.data?.status==='no_admitted_account')return {status:200,body:{status:'no_admitted_account'}};
+   if(r.data?.status!=='selected'||!id(r.data.account_id)||LEGACY.has(r.data.account_id.toLowerCase())||typeof r.data.discovery_turn!=='boolean')return unavailable();
+   return {status:200,body:{status:'selected',accountId:r.data.account_id,discoveryTurn:r.data.discovery_turn}};
+  }catch{return unavailable();}
+ }
  if(p.action===D11_ACTIONS[7]||p.action===D11_ACTIONS[8]){
   try{
    const read=p.action===D11_ACTIONS[7];
@@ -97,7 +107,7 @@ export async function executeD11BridgeAction(core,p,{enabled=false,now=Date.now,
   }catch{return unavailable();}
  }
  const scope={accountId:p.channel_account_id,leaseId:p.lease_id,revision:p.revision};
- const action=[D11_ACTIONS[2],D11_ACTIONS[11]].includes(p.action)?p.effect:'intake';
+ const action=p.action===D11_ACTIONS[14]?'refresh':[D11_ACTIONS[2],D11_ACTIONS[11]].includes(p.action)?p.effect:'intake';
  try{
   const result=await readPolicy(core,{accountId:scope.accountId,action,now:now()});
   const profile=result?.profile;
@@ -109,10 +119,15 @@ export async function executeD11BridgeAction(core,p,{enabled=false,now=Date.now,
    .select('channel_account_id,lease_id,lease_policy_revision,lease_expires_at,candidate_order_sn,updated_at,halted_code')
    .eq('channel_account_id',scope.accountId).maybeSingle();
   if(error||!v||v.channel_account_id!==scope.accountId||v.lease_id!==scope.leaseId||v.lease_policy_revision!==scope.revision
-   ||v.halted_code!==null||!text(v.candidate_order_sn,SN)||!iso(v.updated_at)||!iso(v.lease_expires_at)
+   ||v.halted_code!==null||!(text(v.candidate_order_sn,SN)||(action==='refresh'&&v.candidate_order_sn===null))||!iso(v.updated_at)||!iso(v.lease_expires_at)
    ||Date.parse(v.updated_at)>now())return blocked('d11_candidate_refused');
   const expires=Math.min(Date.parse(v.lease_expires_at),Date.parse(profile.expires_at));
   if(!Number.isFinite(expires)||expires<=now())return blocked('d11_lease_refused');
+  if(action==='refresh'){
+   if(!(await checkLease(core,{...scope,action}))?.ok)return blocked('d11_lease_refused');
+   return {status:200,body:{status:'refresh_scope',accountId:scope.accountId,leaseId:scope.leaseId,revision:scope.revision,
+    partnerId:profile.partner,shopId:profile.shop,expiresAt:new Date(expires).toISOString()}};
+  }
   const q=await core.from('shopee_cycle_orders').select('channel_account_id,order_sn,state')
    .eq('channel_account_id',scope.accountId).eq('order_sn',v.candidate_order_sn).maybeSingle();
   if(q.error||q.data?.channel_account_id!==scope.accountId||q.data?.order_sn!==v.candidate_order_sn||q.data?.state!=='pending')
