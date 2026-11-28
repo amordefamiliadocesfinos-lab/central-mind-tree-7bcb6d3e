@@ -93,18 +93,21 @@ export function proposeCrmConversationProfileFields(
     for (const line of lines) {
       // Apenas formatos reconhecíveis; ausência de rótulo não comprova titularidade.
       // Não inferir CEP de cobrança ou endereço principal a partir de um número solto.
-      const plainEmail = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.exec(line)?.[0];
-      const plainCep = /\b\d{5}-?\d{3}\b/.exec(line)?.[0];
-      if (plainEmail && validCandidate('email', plainEmail)) {
+      const emailsOnLine = [...line.matchAll(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi)].map(match => match[0]);
+      const cepsOnLine = [...line.matchAll(/\b\d{5}-?\d{3}\b/g)].map(match => match[0]);
+      // Palavras de finalidade explícita não podem originar pistas livres de endereço principal.
+      const cepIsOtherPurpose = /(?:cobrança|entrega|destinatári[ao]|terceir[ao]|mãe|pai|esposa|marido)/i.test(line);
+      const emailIsOtherPerson = /(?:e-mail|email|contato)\s+(?:d[ao]|de)\s+(?:minha|meu|outra|outro|terceir[ao]|cliente|destinatári[ao]|mãe|pai|esposa|marido)/i.test(line);
+      for (const value of emailsOnLine) {
+        if (emailIsOtherPerson || !validCandidate('email', value)) continue;
         const list = unverified.get('email') ?? [];
-        list.push({ value: plainEmail, id: message.id, date: message.created_at, excerpt: simplify(line).slice(0, 160) });
+        list.push({ value, id: message.id, date: message.created_at, excerpt: simplify(line).slice(0, 160) });
         unverified.set('email', list);
       }
-      // CEP explicitamente de cobrança, entrega ou terceiro nunca é pista de CEP principal.
-      const cepIsOtherPurpose = /(?:cobrança|entrega|destinatári[ao]|terceir[ao]|mãe|pai|esposa|marido)/i.test(line);
-      if (plainCep && !cepIsOtherPurpose && validCandidate('zip_code', plainCep)) {
+      for (const value of cepsOnLine) {
+        if (cepIsOtherPurpose || !validCandidate('zip_code', value)) continue;
         const list = unverified.get('zip_code') ?? [];
-        list.push({ value: plainCep, id: message.id, date: message.created_at, excerpt: simplify(line).slice(0, 160) });
+        list.push({ value, id: message.id, date: message.created_at, excerpt: simplify(line).slice(0, 160) });
         unverified.set('zip_code', list);
       }
       for (const field of CRM_CONVERSATION_PROFILE_FIELDS) {
@@ -114,6 +117,15 @@ export function proposeCrmConversationProfileFields(
         if (!value || !validCandidate(field, value) || /(?:ignore|instrução|sistema|assistente|prompt)/i.test(value)) continue;
         const list = candidates.get(field) ?? [];
         list.push({ value, id: message.id, date: message.created_at, excerpt: simplify(line).slice(0, 160) });
+        // Dois identificadores na mesma declaração não comprovam qual é o titular.
+        // Capturar alternativas como conflito rotulado, nunca permitir preenchimento.
+        const alternativeValues = field === 'email' ? emailsOnLine
+          : field === 'zip_code' && !cepIsOtherPurpose ? cepsOnLine : [];
+        for (const otherValue of alternativeValues) {
+          if (comparable(field, otherValue) !== comparable(field, value) && validCandidate(field, otherValue)) {
+            list.push({ value: otherValue, id: message.id, date: message.created_at, excerpt: simplify(line).slice(0, 160) });
+          }
+        }
         candidates.set(field, list);
       }
     }
