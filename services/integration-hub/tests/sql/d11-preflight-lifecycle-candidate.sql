@@ -33,8 +33,9 @@ BEGIN
    OR p_code IS NULL OR p_code NOT IN ('d11_preflight_verified_existing','d11_preflight_no_candidate',
      'd11_preflight_scope_refused','d11_preflight_budget_exhausted','d11_preflight_observation_refused',
      'd11_preflight_reconciliation_refused','d11_preflight_unavailable','d11_intake_written',
-     'd11_effect_pending','d11_effect_requires_review','d11_label_available')
-   OR ((p_candidate IS NULL) IS DISTINCT FROM (p_code='d11_preflight_no_candidate'))
+     'd11_effect_pending','d11_effect_requires_review','d11_label_available','d11_oauth_refreshed','d11_oauth_refresh_not_admitted','cycle_refresh_or_discovery_uncertain')
+   OR (p_code NOT IN ('d11_oauth_refreshed','d11_oauth_refresh_not_admitted','cycle_refresh_or_discovery_uncertain')
+      AND ((p_candidate IS NULL) IS DISTINCT FROM (p_code='d11_preflight_no_candidate')))
  THEN RETURN jsonb_build_object('status','invalid_request'); END IF;
  SELECT * INTO v FROM public.shopee_cycle_state WHERE channel_account_id=p_account FOR UPDATE;
  IF NOT FOUND OR v.lease_id IS DISTINCT FROM p_lease OR v.lease_policy_revision IS DISTINCT FROM p_revision
@@ -48,6 +49,13 @@ BEGIN
  IF p_candidate IS NOT NULL AND NOT EXISTS(SELECT 1 FROM public.shopee_cycle_orders
    WHERE channel_account_id=p_account AND order_sn=p_candidate AND state='pending')
  THEN RETURN jsonb_build_object('status','candidate_refused'); END IF;
+ -- Refresh is a separate round and preserves the next discovery turn. An
+ -- uncertain rotation halts this account using the existing cycle contract.
+ IF p_code IN ('d11_oauth_refreshed','d11_oauth_refresh_not_admitted','cycle_refresh_or_discovery_uncertain') THEN
+  RETURN public.finish_shopee_cycle(p_account,p_lease,NULL,p_candidate,'pending',p_code);
+ END IF;
+ -- A completed processing turn gives discovery its next turn. This is the
+ -- existing account state, not a new scheduler or a new queue.
  -- Complete only the integration queue, never the physical separation.
  IF p_code='d11_label_available' THEN
   e:=public.read_shopee_cycle_observation(p_account,p_lease,p_revision,'label');
@@ -69,8 +77,10 @@ BEGIN
    AND storage_path=o::text||'/shopee-'||key||'.pdf' AND mime_type='application/pdf'
    AND file_size BETWEEN 16 AND 4194304;
   IF n<>1 THEN RETURN jsonb_build_object('status','candidate_refused'); END IF;
+  UPDATE public.shopee_cycle_state SET d11_next_discovery=true WHERE channel_account_id=p_account;
   RETURN public.finish_shopee_cycle(p_account,p_lease,NULL,p_candidate,'complete',p_code);
  END IF;
+ UPDATE public.shopee_cycle_state SET d11_next_discovery=true WHERE channel_account_id=p_account;
  IF p_code='d11_effect_requires_review' THEN
   RETURN public.finish_shopee_cycle(p_account,p_lease,NULL,p_candidate,'blocked',p_code);
  END IF;
@@ -80,3 +90,23 @@ REVOKE ALL ON FUNCTION public.acquire_shopee_d11_preflight(uuid) FROM PUBLIC,ano
 REVOKE ALL ON FUNCTION public.finish_shopee_d11_preflight(uuid,uuid,integer,text,text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.acquire_shopee_d11_preflight(uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.finish_shopee_d11_preflight(uuid,uuid,integer,text,text) TO service_role;
+
+-- A scheduler has no account argument. Choose the oldest idle admitted
+-- account from the current Core policy, not a hardcoded list or metadata.
+CREATE FUNCTION public.select_shopee_d11_account()
+RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path=public,pg_temp AS $$
+DECLARE a uuid; d boolean;
+BEGIN
+ SELECT x.channel_account_id,coalesce(v.d11_next_discovery,true) INTO a,d
+ FROM (SELECT DISTINCT channel_account_id FROM public.shopee_cycle_policy_revisions) x
+ LEFT JOIN public.shopee_cycle_state v ON v.channel_account_id=x.channel_account_id
+ WHERE x.channel_account_id NOT IN ('8a8ad166-0317-4597-8be6-e43fb46b4d1b','b4027369-5abf-4ac1-ab24-862334fae892')
+ AND v.halted_code IS NULL AND (v.lease_expires_at IS NULL OR v.lease_expires_at<=clock_timestamp())
+ AND public.admit_shopee_cycle_policy(x.channel_account_id,'intake') IS NOT NULL
+ AND (public.admit_shopee_cycle_policy(x.channel_account_id,'discover')->>'expires_at')::timestamptz>clock_timestamp()+interval '90 seconds'
+ ORDER BY v.updated_at NULLS FIRST,x.channel_account_id LIMIT 1;
+ IF a IS NULL THEN RETURN jsonb_build_object('status','no_admitted_account'); END IF;
+ RETURN jsonb_build_object('status','selected','account_id',a,'discovery_turn',d);
+END $$;
+REVOKE ALL ON FUNCTION public.select_shopee_d11_account() FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.select_shopee_d11_account() TO service_role;
