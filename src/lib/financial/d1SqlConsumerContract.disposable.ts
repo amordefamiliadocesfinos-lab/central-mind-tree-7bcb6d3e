@@ -3,7 +3,7 @@ import {readFileSync} from 'node:fs';
 import {compareObligation,type ObligationComparison} from './d1ConsumerCompatibilityCandidate.ts';
 // This executable consumes real PostgreSQL output from the existing disposable CI.
 // No synthetic JSON substitutes for the SQL projection.
-const file=process.argv[2];
+const file=process.env.FIN_D1_EXPORT_FILE;
 assert.ok(file,'SQL export path required');
 const rows:ObligationComparison[]=JSON.parse(readFileSync(file,'utf8'));
 assert.equal(rows.length,3);
