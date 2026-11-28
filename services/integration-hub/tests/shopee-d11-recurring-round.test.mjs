@@ -15,6 +15,7 @@ function fixture(){
   adapters:{acquirePreflight:async()=>{f.calls.push('acquire');return {status:'acquired',channel_account_id:A,lease_id:L,policy_revision:1,work_budget_ms:48000,expires_at:new Date(N+120000).toISOString(),candidate_order_sn:f.candidate};},
    finishPreflight:async(s,code)=>{f.calls.push(code);assert.equal(s.leaseId,L);return f.loseFinish?null:{status:'finished'};},
    readEffectScope:async s=>{assert.equal(s.observationId,I);return s.effect===f.effect?{status:'effect_scope',effect:s.effect}:null;}},
+  refresh:async()=>f.oauth??{ok:true,code:'d11_oauth_current'},
   preflight:async()=>{f.calls.push('preflight');return f.proof;},
   discover:async()=>{f.calls.push('discover');return {ok:true,code:'d11_discovery_checkpointed',ordersWritten:0,effects:0,leaseReleased:true};},
   makeShip:maker('ship'),makeLabel:maker('label')});
@@ -46,3 +47,10 @@ test('D11 uncertainty quarantines candidate, no retry; missing finish acknowledg
  assert.deepEqual(g.calls,['acquire','preflight','ship','d11_effect_pending']);
 });
 test('D11 disabled round cannot acquire a lease',async()=>{const f=fixture();f.flag='false';assert.equal((await f.run({accountId:A})).code,'d11_round_disabled');assert.deepEqual(f.calls,[]);});
+
+test('D11 expired OAuth uses a separate turn; unknown rotation halts without processing',async()=>{
+ const f=fixture();f.oauth={ok:true,code:'d11_oauth_refreshed'};const r=await f.run({accountId:A});
+ assert.equal(r.oauthRefreshed,true);assert.deepEqual(f.calls,['acquire','d11_oauth_refreshed']);
+ const g=fixture();g.oauth={ok:false,code:'cycle_refresh_or_discovery_uncertain'};const t=await g.run({accountId:A});
+ assert.equal(t.reconciliationRequired,true);assert.deepEqual(g.calls,['acquire','cycle_refresh_or_discovery_uncertain']);
+});
