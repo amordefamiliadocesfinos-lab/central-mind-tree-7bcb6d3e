@@ -9,6 +9,8 @@ export function createD11BridgeAdapters({call=callCoreBridgeAction,enabled=false
   return r?.ok===true?r.payload:null;
  }
  return {
+  acquirePreflight:accountId=>invoke('shopee.d11.preflight.acquire',{channel_account_id:accountId}),
+  finishPreflight:(p,code)=>invoke('shopee.d11.preflight.finish',{...scopeData(p),candidate_order_sn:p.orderSn,code}),
   readScope:s=>invoke('shopee.d11.scope.read',scopeData(s)),
   recordObservation:p=>invoke('shopee.d11.observation.record',{
    channel_account_id:p.p_account,lease_id:p.p_lease,revision:p.p_revision,
