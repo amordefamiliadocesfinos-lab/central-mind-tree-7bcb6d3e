@@ -30,5 +30,8 @@ assert(ui.includes("excerpt&&excerpt.length<=480"));
 assert(ui.includes("onClick={()=>onOpenWorkstream(front.id)}"));
 assert(ui.includes("onClick={()=>onOpenEvidence(front.id)}"));
 assert(ui.includes("findNucleoFindingSources(finding, evidence)"));
+assert(ui.includes('finding.kind==="dependencia_bloqueante" && onOpenWorkstream && front &&'));
+assert(ui.includes("link.workstream_id===front.id"));
+assert(ui.includes("target.id!==front.id"));
 assert(!source.includes("supabase"));
 console.log("PASS SI05: original findings and evidence preserved, ordering only, scope, ambiguity and action provenance");
