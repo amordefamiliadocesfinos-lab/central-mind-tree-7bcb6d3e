@@ -7,7 +7,7 @@ const SN=/^[A-Za-z0-9]{8,100}$/;
 const HASH=/^[0-9a-f]{64}$/;
 const LEGACY=new Set(['8a8ad166-0317-4597-8be6-e43fb46b4d1b','b4027369-5abf-4ac1-ab24-862334fae892']);
 const scopeKeys=['channel_account_id','lease_id','revision'];
-export const D11_ACTIONS=Object.freeze(['shopee.d11.scope.read','shopee.d11.observation.record','shopee.d11.effect.claim','shopee.d11.reconcile.read','shopee.d11.reconcile.verify']);
+export const D11_ACTIONS=Object.freeze(['shopee.d11.scope.read','shopee.d11.observation.record','shopee.d11.effect.claim','shopee.d11.reconcile.read','shopee.d11.reconcile.verify','shopee.d11.preflight.acquire','shopee.d11.preflight.finish']);
 const id=v=>typeof v==='string'&&UUID.test(v);
 const text=(v,re)=>typeof v==='string'&&re.test(v);
 const object=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
@@ -15,9 +15,15 @@ const exact=(v,keys)=>object(v)&&Object.keys(v).length===keys.length&&keys.every
 const positive=v=>Number.isSafeInteger(v)&&v>0;
 const iso=v=>typeof v==='string'&&v.length<=40&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/.test(v)&&Number.isFinite(Date.parse(v));
 export function validateD11Payload(p){
- if(!object(p)||!D11_ACTIONS.includes(p.action)||!id(p.channel_account_id)||LEGACY.has(p.channel_account_id.toLowerCase())||!id(p.lease_id)||!positive(p.revision))return false;
+ if(!object(p)||!D11_ACTIONS.includes(p.action)||!id(p.channel_account_id)||LEGACY.has(p.channel_account_id.toLowerCase()) )return false;
+ if(p.action===D11_ACTIONS[5])return exact(p,['action','channel_account_id']);
+ if(!id(p.lease_id)||!positive(p.revision))return false;
  const base=['action',...scopeKeys];
  if(p.action===D11_ACTIONS[0])return exact(p,base);
+ if(p.action===D11_ACTIONS[6])return exact(p,[...base,'candidate_order_sn','code'])
+  &&(p.candidate_order_sn===null||text(p.candidate_order_sn,SN))
+  &&['d11_preflight_verified_existing','d11_preflight_no_candidate','d11_preflight_scope_refused','d11_preflight_budget_exhausted','d11_preflight_observation_refused','d11_preflight_reconciliation_refused','d11_preflight_unavailable'].includes(p.code)
+  &&((p.candidate_order_sn===null)===(p.code==='d11_preflight_no_candidate'));
  if(p.action===D11_ACTIONS[3])return exact(p,[...base,'observation_id'])&&id(p.observation_id);
  if(p.action===D11_ACTIONS[4])return exact(p,[...base,'observation_id','projection'])&&id(p.observation_id)&&object(p.projection);
  if(!positive(p.shop_id)||!text(p.order_sn,SN))return false;
@@ -33,6 +39,21 @@ const unavailable=()=>({status:503,body:{error:'d11_bridge_unavailable'}});
 export async function executeD11BridgeAction(core,p,{enabled=false,now=Date.now,readPolicy=readCyclePolicy,checkLease=checkCyclePolicyLease,prepareReconciliation=createProtectedReconciliationReader}={}){
  if(enabled!==true)return {status:503,body:{error:'d11_bridge_not_enabled'}};
  if(!validateD11Payload(p))return {status:400,body:{error:'invalid_request'}};
+ if(p.action===D11_ACTIONS[5]||p.action===D11_ACTIONS[6]){
+  try{
+   const acquire=p.action===D11_ACTIONS[5];
+   const r=await core.rpc(acquire?'acquire_shopee_d11_preflight':'finish_shopee_d11_preflight',acquire?
+    {p_account:p.channel_account_id}:{p_account:p.channel_account_id,p_lease:p.lease_id,p_revision:p.revision,p_candidate:p.candidate_order_sn,p_code:p.code});
+   if(r.error||!r.data)return unavailable();
+   if(!acquire)return r.data.status==='finished'?{status:200,body:{status:'finished'}}:blocked('d11_preflight_finish_refused');
+   const v=r.data;
+   if(v.status!=='acquired')return blocked(['busy','account_refused','account_halted'].includes(v.status)?v.status:'d11_preflight_acquire_refused');
+   if(v.channel_account_id!==p.channel_account_id||!id(v.lease_id)||!positive(v.policy_revision)||!iso(v.expires_at)
+    ||!positive(v.work_budget_ms)||v.work_budget_ms>48000||!(v.candidate_order_sn===null||text(v.candidate_order_sn,SN)))return unavailable();
+   return {status:200,body:{status:'acquired',channel_account_id:v.channel_account_id,lease_id:v.lease_id,
+    policy_revision:v.policy_revision,candidate_order_sn:v.candidate_order_sn,expires_at:v.expires_at,work_budget_ms:v.work_budget_ms}};
+  }catch{return unavailable();}
+ }
  const scope={accountId:p.channel_account_id,leaseId:p.lease_id,revision:p.revision};
  const action=p.action===D11_ACTIONS[2]?p.effect:'intake';
  try{

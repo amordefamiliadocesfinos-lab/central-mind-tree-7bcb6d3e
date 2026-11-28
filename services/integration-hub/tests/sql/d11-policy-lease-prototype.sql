@@ -5,6 +5,7 @@ ALTER TABLE public.shopee_oauth_connections ADD COLUMN shop_status text,
   ADD COLUMN authorization_expires_at timestamptz;
 \ir d11-policy-lease-schema.sql
 \ir d11-policy-acquire-candidate.sql
+\ir d11-preflight-lifecycle-candidate.sql
 
 INSERT INTO public.channel_accounts(id,name,is_active,platform_id) VALUES
 ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','D11 synthetic A',true,'11111111-1111-4111-8111-111111111111'),
@@ -74,6 +75,59 @@ BEGIN
  ASSERT public.finish_shopee_cycle(b,l2,null,null,'pending','discovered')->>'status'='finished';
  x:=public.acquire_shopee_cycle('b4027369-5abf-4ac1-ab24-862334fae892');
  ASSERT x->>'status'='acquired' AND NOT (x ? 'policy_revision');
+END $$;
+RESET ROLE;
+
+-- Lifecycle proof: discover-only policy cannot admit preflight.
+SET LOCAL ROLE service_role;
+DO $$ BEGIN
+ ASSERT public.acquire_shopee_d11_preflight('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb')->>'status'='account_refused';
+ ASSERT public.acquire_shopee_d11_preflight('b4027369-5abf-4ac1-ab24-862334fae892')->>'status'='account_refused';
+ ASSERT NOT has_function_privilege('authenticated','public.acquire_shopee_d11_preflight(uuid)','EXECUTE');
+ ASSERT NOT has_function_privilege('anon','public.finish_shopee_d11_preflight(uuid,uuid,integer,text,text)','EXECUTE');
+END $$;
+RESET ROLE;
+INSERT INTO public.shopee_cycle_policy_revisions
+(channel_account_id,revision,environment,shop_id,partner_id,history_cutoff,enabled,paused,capabilities,
+ authorized_by,authorized_at,expires_at,evidence_ref)
+SELECT channel_account_id,2,environment,shop_id,partner_id,history_cutoff,true,false,
+ '{"discover":true,"intake":true,"ship":false,"label":false,"refresh":false}'::jsonb,
+ authorized_by,clock_timestamp(),clock_timestamp()+interval '4 minutes',evidence_ref
+ FROM public.shopee_cycle_policy_revisions WHERE channel_account_id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' AND revision=1;
+SET LOCAL ROLE service_role;
+DO $$ DECLARE b uuid:='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'; x jsonb; l uuid;
+BEGIN
+ x:=public.acquire_shopee_d11_preflight(b);l:=(x->>'lease_id')::uuid;
+ ASSERT x->>'status'='acquired' AND x->>'policy_revision'='2' AND x->>'candidate_order_sn' IS NULL;
+ ASSERT public.acquire_shopee_d11_preflight(b)->>'status'='busy';
+ ASSERT public.finish_shopee_d11_preflight(b,l,1,NULL,'d11_preflight_no_candidate')->>'status'='stale_lease';
+ ASSERT public.finish_shopee_d11_preflight(b,l,2,NULL,'complete')->>'status'='invalid_request';
+ ASSERT public.finish_shopee_d11_preflight(b,l,2,NULL,'d11_preflight_no_candidate')->>'status'='finished';
+ ASSERT public.finish_shopee_d11_preflight(b,l,2,NULL,'d11_preflight_no_candidate')->>'status'='stale_lease';
+END $$;
+RESET ROLE;
+INSERT INTO public.shopee_cycle_orders(channel_account_id,order_sn) VALUES ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','D11SYNTHETIC1');
+SET LOCAL ROLE service_role;
+DO $$ DECLARE b uuid:='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'; x jsonb; l uuid;
+BEGIN
+ x:=public.acquire_shopee_d11_preflight(b);l:=(x->>'lease_id')::uuid;
+ ASSERT x->>'candidate_order_sn'='D11SYNTHETIC1';
+ ASSERT public.finish_shopee_d11_preflight(b,l,2,'OTHERORDER1','d11_preflight_verified_existing')->>'status'='stale_lease';
+ ASSERT public.finish_shopee_d11_preflight(b,l,2,'D11SYNTHETIC1','d11_preflight_no_candidate')->>'status'='invalid_request';
+END $$;
+RESET ROLE;
+INSERT INTO public.shopee_cycle_policy_revisions(channel_account_id,revision,environment,shop_id,partner_id,history_cutoff)
+VALUES ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',3,'live',456,2047685,1);
+SET LOCAL ROLE service_role;
+DO $$ DECLARE b uuid:='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'; l uuid; before_row jsonb; after_row jsonb;
+BEGIN
+ SELECT lease_id,to_jsonb(s) INTO l,before_row FROM public.shopee_cycle_state s WHERE channel_account_id=b;
+ ASSERT NOT public.check_shopee_cycle_policy_lease(b,l,2,'intake');
+ ASSERT public.finish_shopee_d11_preflight(b,l,2,'D11SYNTHETIC1','d11_preflight_scope_refused')->>'status'='finished';
+ SELECT to_jsonb(s) INTO after_row FROM public.shopee_cycle_state s WHERE channel_account_id=b;
+ ASSERT before_row->'time_from'=after_row->'time_from' AND before_row->'time_to'=after_row->'time_to' AND before_row->'cursor'=after_row->'cursor';
+ ASSERT (SELECT state FROM public.shopee_cycle_orders WHERE channel_account_id=b AND order_sn='D11SYNTHETIC1')='pending';
+ ASSERT public.acquire_shopee_d11_preflight(b)->>'status'='account_refused';
 END $$;
 RESET ROLE;
 
