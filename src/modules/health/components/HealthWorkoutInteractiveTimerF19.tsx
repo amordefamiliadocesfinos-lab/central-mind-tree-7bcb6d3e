@@ -928,6 +928,7 @@ export function HealthWorkoutInteractiveTimerF19({
       ) : viewedExercise ? (
         <Card
           className={`sau-current-exercise ${viewingActiveExercise ? "ring-1 ring-primary/25" : ""}`}
+          data-sau-active-work={Boolean(viewingActiveExercise && activeWork)}
         >
           <CardHeader className="sau-exercise-heading px-3 pt-3 pb-2">
             <div className="flex items-start justify-between gap-3">
@@ -1114,7 +1115,7 @@ export function HealthWorkoutInteractiveTimerF19({
                     </div>
 
                     <Button
-                      className="min-h-12 w-full text-base"
+                      className="sau-primary-work-action min-h-12 w-full text-base"
                       disabled={disabled}
                       onClick={() =>
                         void run(
