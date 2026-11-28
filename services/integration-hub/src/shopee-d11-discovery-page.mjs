@@ -94,3 +94,39 @@ export function createD11DiscoveryPage({enabled=false,now=Date.now,call,getEnv=k
   }catch{return fail('d11_discovery_unavailable');}
  };
 }
+
+// Internal single-page round shares the preflight acquisition. No discovery
+// and preflight are run concurrently for the same account. The existing
+// durable lease is the exclusion boundary. A lost checkpoint acknowledgement
+// is never followed by a second finish or an automatic replay.
+export function createD11DiscoveryRound({enabled=false,now=Date.now,call,
+ adapters=createD11BridgeAdapters({enabled,call}),
+ discover=createD11DiscoveryPage({enabled,now,call,adapters})}={}){
+ return async function run({accountId}={}){
+  if(enabled!==true)return fail('d11_discovery_disabled');
+  if(!id(accountId)||legacy.has(accountId.toLowerCase()))return fail('d11_discovery_scope_refused');
+  const started=now();
+  let lease;
+  try{lease=await adapters.acquirePreflight(accountId)}catch{return fail('d11_discovery_acquire_unconfirmed');}
+  if(lease?.status!=='acquired'||lease.channel_account_id!==accountId||!id(lease.lease_id)||!cap(lease.policy_revision,2147483647)
+   ||!cap(lease.work_budget_ms,48000)||!Number.isFinite(Date.parse(lease.expires_at))
+   ||!(lease.candidate_order_sn===null||(typeof lease.candidate_order_sn==='string'&&SN.test(lease.candidate_order_sn))))
+   return fail('d11_discovery_acquire_unconfirmed');
+  const scope={accountId,leaseId:lease.lease_id,revision:lease.policy_revision,orderSn:lease.candidate_order_sn};
+  const deadline=Math.min(started+lease.work_budget_ms,Date.parse(lease.expires_at)-1000);
+  let r;
+  try{
+   r=now()<deadline?await discover({accountId,leaseId:scope.leaseId,revision:scope.revision,deadline}):fail('d11_discovery_budget_exhausted');
+  }catch{
+   // Unknown whether the injected worker crossed the checkpoint boundary.
+   return fail('d11_discovery_checkpoint_unconfirmed');
+  }
+  if(r?.ok===true&&r.code==='d11_discovery_checkpointed'&&r.leaseReleased===true&&r.ordersWritten===0&&r.effects===0)return r;
+  if(!r||r.checkpointAttempted||r.ok===true)return fail('d11_discovery_checkpoint_unconfirmed');
+  try{
+   const f=await adapters.finishPreflight(scope,scope.orderSn===null?'d11_preflight_no_candidate':'d11_preflight_unavailable');
+   if(f?.status!=='finished')return fail('d11_discovery_release_unconfirmed');
+   return {...fail(r.code),leaseReleased:true};
+  }catch{return fail('d11_discovery_release_unconfirmed');}
+ };
+}
