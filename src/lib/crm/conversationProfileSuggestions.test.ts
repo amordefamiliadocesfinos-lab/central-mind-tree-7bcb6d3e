@@ -262,3 +262,31 @@ test('B9 billing and delivery CEP never become a primary CEP hint', () => {
   const billing = result.find(item => item.field === 'billing_zip_code');
   assert.equal(billing?.value, '88220-000');
 });
+
+test('B10 counts distinct free-text candidates without turning hints into writable fields', () => {
+  const result = proposeCrmConversationProfileFields([
+    msg('first', 'customer', 'Envie para primeiro@example.com'),
+    msg('second', 'customer', 'Pode usar segundo@example.com', '2026-11-27T13:00:00Z'),
+    msg('third', 'customer', 'Repetindo: PRIMEIRO@example.com', '2026-11-27T14:00:00Z'),
+  ], {});
+  const email = result.find(item => item.field === 'email');
+  assert.equal(email?.state, 'unverified');
+  assert.equal(email?.distinctValues, 2);
+  assert.equal(email?.requiresReview, true);
+  const panel = readFileSync('src/components/crm/ConversationProfileSuggestions.tsx', 'utf8');
+  assert.match(panel, /item\.distinctValues > 1/);
+  assert.match(panel, /não escolha apenas a mais recente/);
+  assert.match(panel, /disabled=\{item\.state !== 'empty'/);
+});
+
+test('B10 labeled contradictions remain blocked while equivalent formats count once', () => {
+  const result = proposeCrmConversationProfileFields([
+    msg('one', 'customer', 'Telefone: (47) 99999-9999'),
+    msg('two', 'customer', 'Telefone: 47999999999', '2026-11-27T13:00:00Z'),
+    msg('three', 'customer', 'Cidade: Itapema'),
+    msg('four', 'customer', 'Cidade: Porto Belo', '2026-11-27T13:00:00Z'),
+  ], {});
+  assert.equal(result.find(item => item.field === 'phone')?.distinctValues, 1);
+  assert.equal(result.find(item => item.field === 'city')?.distinctValues, 2);
+  assert.equal(result.find(item => item.field === 'city')?.state, 'ambiguous');
+});
