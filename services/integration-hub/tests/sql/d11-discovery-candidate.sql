@@ -81,6 +81,7 @@ BEGIN
  x:=public.finish_shopee_cycle(p_account,p_lease,jsonb_build_object('order_sns',to_jsonb(eligible),'next_cursor',next_cursor),
    v.candidate_order_sn,'pending','d11_discovery_checkpointed');
  IF x->>'status' IS DISTINCT FROM 'finished' THEN RETURN x; END IF;
+ UPDATE public.shopee_cycle_state SET d11_next_discovery=false WHERE channel_account_id=p_account;
  RETURN jsonb_build_object('status','finished','listed',cardinality(seen),'eligible',cardinality(eligible));
 END $$;
 REVOKE ALL ON FUNCTION public.read_shopee_d11_discovery_scope(uuid,uuid,integer) FROM PUBLIC,anon,authenticated;
