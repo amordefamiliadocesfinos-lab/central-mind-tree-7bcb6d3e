@@ -23,6 +23,9 @@ export function createD11BridgeAdapters({call=callCoreBridgeAction,enabled=false
   readReconciliation:p=>invoke('shopee.d11.reconcile.read',{...scopeData(p),observation_id:p.observationId}),
   verifyReconciliation:(p,projection)=>invoke('shopee.d11.reconcile.verify',{
    ...scopeData(p),observation_id:p.observationId,projection}),
+  readEffectScope:p=>invoke('shopee.d11.effect.scope',{...scopeData(p),observation_id:p.observationId,effect:p.effect}),
+  resolveEffect:p=>invoke('shopee.d11.effect.resolve',{...scopeData(p),observation_id:p.observationId,effect:p.effect,
+   attempt_id:p.attemptId,request_hash:p.requestHash,outcome:p.outcome}),
   claimEffect:p=>invoke('shopee.d11.effect.claim',{
    ...scopeData(p),shop_id:p.shopId,order_sn:p.orderSn,package_number:p.packageNumber,
    request_hash:p.requestHash,observation_id:p.observationId,effect:p.effect})

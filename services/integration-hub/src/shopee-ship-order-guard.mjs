@@ -107,7 +107,16 @@ export function createGuardedShopeeShipOrder({
           && automaticScope.shopId === 1156446003
           && automaticScope.fiscalMode === 'cpf_no_invoice_step';
         const d10 = validD10AutomaticScope(automaticScope, getEnv, now());
-        if (!legacyAdao && !d10) {
+        const d11 = automaticScope?.profileMode==='d11' && getEnv('SHOPEE_D11_SHIP_EXECUTOR_ENABLED')==='true'
+          && /^[0-9a-f-]{36}$/i.test(automaticScope.channelAccountId??'')
+          && !['b4027369-5abf-4ac1-ab24-862334fae892','8a8ad166-0317-4597-8be6-e43fb46b4d1b'].includes(automaticScope.channelAccountId)
+          && /^[A-Za-z0-9]{8,100}$/.test(automaticScope.orderSn??'')
+          && /^[A-Za-z0-9_-]{1,100}$/.test(automaticScope.packageNumber??'')
+          && positiveSafeInteger(automaticScope.shopId) && ['pj_shopee_issuer','cpf_no_invoice_step'].includes(automaticScope.fiscalMode)
+          && typeof automaticScope.splitUp==='boolean' && Number.isFinite(automaticScope.deadline)
+          && automaticScope.deadline>now() && automaticScope.deadline-now()<=48000
+          && claim!==claimShopeeShippingArrangement && resolve!==resolveShopeeShippingArrangement;
+        if (!legacyAdao && !d10 && !d11) {
           return { ok: false, code: 'automatic_account_scope_mismatch' };
         }
         orderSn = automaticScope.orderSn;
@@ -117,7 +126,7 @@ export function createGuardedShopeeShipOrder({
         fiscalMode = automaticScope.fiscalMode;
         // This short deadline bounds the *one current request*, not a recurring
         // authorization of arbitrary orders. Fresh live preflight is still mandatory.
-        windowExpiresAt = d10 ? Math.min(resolveD10Profile(getEnv, now())?.expiry ?? 0, now() + 2 * 60_000) : now() + 2 * 60_000;
+        windowExpiresAt = d11 ? automaticScope.deadline : d10 ? Math.min(resolveD10Profile(getEnv, now())?.expiry ?? 0, now() + 2 * 60_000) : now() + 2 * 60_000;
       } else {
       orderSn = envRequired(getEnv, 'SHOPEE_LIVE_SHIPPING_PREFLIGHT_ORDER_SN');
       channelAccountId = envRequired(getEnv, 'SHOPEE_LIVE_CHANNEL_ACCOUNT_ID');
@@ -184,6 +193,9 @@ export function createGuardedShopeeShipOrder({
         || !/^[A-Za-z0-9_-]{1,100}$/.test(String(proof.package_number ?? ''))) {
       return { ok: false, code: 'preflight_not_eligible' };
     }
+    if (automaticScope?.profileMode==='d11' && (proof.package_number!==automaticScope.packageNumber || proof.split_up!==automaticScope.splitUp)) {
+      return {ok:false,code:'d11_package_scope_mismatch'};
+    }
     if (automaticScope?.profileMode === 'd10' && proof.package_number !== resolveD10Profile(getEnv, now())?.expectedPackage) {
       return { ok: false, code: 'd10_package_scope_mismatch' };
     }
@@ -248,7 +260,7 @@ export function createGuardedShopeeShipOrder({
     // The window is checked again immediately before acquiring an irreversible
     // claim. A claim never authorizes automatic retries after expiry.
     const remaining = windowExpiresAt - now();
-    if (!Number.isFinite(remaining) || remaining <= 60_000) {
+    if (!Number.isFinite(remaining) || remaining <= (automaticScope?.profileMode==='d11'?1000:60_000)) {
       return { ok: false, code: 'ship_order_window_inactive' };
     }
     let reserved;
