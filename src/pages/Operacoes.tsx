@@ -22,7 +22,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Package, ShoppingCart, Factory, ArrowLeft, Trash2, AlertTriangle, Warehouse, DollarSign, ClipboardCheck, List, LayoutGrid, FileSpreadsheet, GitMerge } from 'lucide-react';
+import { Plus, Package, ShoppingCart, Factory, ArrowLeft, Trash2, Copy, AlertTriangle, Warehouse, DollarSign, ClipboardCheck, List, LayoutGrid, FileSpreadsheet, GitMerge } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import { ProductGallery } from '@/components/ProductGallery';
 import { ProductMovementHistory } from '@/components/ProductMovementHistory';
@@ -92,6 +92,7 @@ import { toast } from 'sonner';
 import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
 import type { CommercialPresentation } from '@/lib/products/commercialPresentation';
 import { expandCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal, isSaleVariantAllowed, isGlucodryGD2, isChocolateCB3, isAmendoimAM3 } from '@/lib/orders/commercialOrderItem';
+import { duplicateCommercialSaleLine, selectCommercialSaleLineVariant } from '@/lib/orders/commercialSaleDraft';
 import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 import { isTrufaSealedP100, sumTrufaSealedStock } from '@/lib/orders/trufaSealedP100';
 
@@ -636,6 +637,18 @@ export default function Operacoes() {
     });
   };
 
+  const duplicateSaleItemForFlavor = (index: number) => {
+    const source = newSale.items[index];
+    if (source?.commercial_presentation?.variant_id
+      && source.commercial_presentation.composition_mode !== 'composite') {
+      toast.info('Apresentação vinculada ao sabor anterior: selecione nova apresentação e quantidade.');
+    }
+    setNewSale(current => ({
+      ...current,
+      items: duplicateCommercialSaleLine(current.items, index),
+    }));
+  };
+
   const updateSaleItem = (index: number, field: keyof NewSaleItem, value: string | number | null) => {
     setNewSale((current) => {
       const items = [...current.items];
@@ -839,7 +852,7 @@ export default function Operacoes() {
                 <DialogHeader className="shrink-0 border-b bg-background px-4 py-4 sm:px-6">
                   <DialogTitle>Novo Pedido</DialogTitle>
                 </DialogHeader>
-                <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+                <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-6">
                   <div className="space-y-5 pb-4">
                   <section className="space-y-4 rounded-xl border bg-muted/20 p-3 sm:p-4">
                   <h3 className="text-sm font-semibold">Contexto do pedido</h3>
@@ -1003,13 +1016,13 @@ export default function Operacoes() {
                       </Button>
                     </div>
                     {newSale.items.map((item, i) => (
-                      <div key={i} className="mb-3 space-y-2 rounded-lg border bg-muted/10 p-2.5">
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(170px,1fr)_minmax(9rem,0.9fr)_minmax(9rem,0.9fr)_5rem_10rem_2.5rem] sm:items-center">
+                      <div key={i} className="mb-3 min-w-0 space-y-2 rounded-lg border bg-muted/10 p-2.5">
+                      <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 sm:items-center" data-testid="commercial-order-item-grid">
                         <Select
                           value={item.product_id}
                           onValueChange={(v) => updateSaleItem(i, 'product_id', v)}
                         >
-                          <SelectTrigger className="h-10">
+                          <SelectTrigger className="h-10 min-w-0">
                             <SelectValue placeholder="Produto" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1032,7 +1045,7 @@ export default function Operacoes() {
                             updateSaleItem(i, '_unit_price_text', null);
                           }}
                         >
-                          <SelectTrigger className="h-10"><SelectValue placeholder="Apresentação" /></SelectTrigger>
+                          <SelectTrigger className="h-10 min-w-0"><SelectValue placeholder="Apresentação" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="__direct__">Unidade direta</SelectItem>
                             {(presentationsByIdentity[presentationKey(item.product_id, item.variant_id)] ?? []).map(presentation => {
@@ -1055,15 +1068,16 @@ export default function Operacoes() {
                             disabled={Boolean(item.commercial_presentation?.variant_id)}
                             onValueChange={(variantId) => {
                               const variant = saleVariants.find(candidate => candidate.id === variantId);
-                              updateSaleItem(i, 'variant_id', variantId || null);
-                              updateSaleItem(i, 'commercial_presentation', null);
-                              updateSaleItem(i, 'commercial_quantity', 1);
                               const product = rawProducts.find(candidate => candidate.id === item.product_id);
-                              updateSaleItem(i, 'unit_price', product ? getDefaultCommercialUnitPrice(product, variant) : 0);
-                              updateSaleItem(i, '_unit_price_text', null);
+                              const canonicalPrice = product ? getDefaultCommercialUnitPrice(product, variant) : 0;
+                              setNewSale(current => ({
+                                ...current,
+                                items: current.items.map((currentItem, index) => index === i
+                                  ? selectCommercialSaleLineVariant(currentItem, variantId || null, canonicalPrice) : currentItem),
+                              }));
                             }}
                           >
-                            <SelectTrigger className="h-10">
+                            <SelectTrigger className="h-10 min-w-0">
                               <SelectValue placeholder="Variante física" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1081,7 +1095,7 @@ export default function Operacoes() {
                           onChange={(e) => updateSaleItem(i, 'commercial_quantity', Number(e.target.value) || 0)}
                         />
                         <CurrencyInput
-                          className="h-10 min-w-[10rem] text-right tabular-nums"
+                          className="h-10 w-full min-w-0 text-right tabular-nums"
                           aria-label="Valor unitário"
                           placeholder="R$ 0,00"
                           value={item._unit_price_text ?? formatBrazilianCurrencyInput(item.unit_price ?? 0)}
@@ -1098,8 +1112,18 @@ export default function Operacoes() {
                             if (parsed) updateSaleItem(i, 'unit_price', parsed.number);
                           }}
                         />
-                          <Button size="icon" variant="ghost" className="h-10 w-full sm:w-10" onClick={() => removeSaleItem(i)}>
-                          <Trash2 className="h-4 w-4" />
+                      </div>
+                      <div className="flex min-w-0 flex-wrap items-center justify-end gap-2" data-testid="commercial-order-item-actions">
+                        <Button type="button" size="sm" variant="outline" className="h-9 min-w-0 gap-1.5"
+                          aria-label="Duplicar item para outro sabor" title="Duplica o produto; selecione a nova variante física"
+                          disabled={!item.product_id} onClick={() => duplicateSaleItemForFlavor(i)}>
+                          <Copy className="h-4 w-4 shrink-0" />
+                          Duplicar sabor
+                        </Button>
+                        <Button type="button" size="sm" variant="ghost" className="h-9 gap-1.5"
+                          aria-label="Remover item" onClick={() => removeSaleItem(i)}>
+                          <Trash2 className="h-4 w-4 shrink-0" />
+                          Remover
                         </Button>
                       </div>
                       {item.commercial_presentation?.composition_mode === 'composite' ? (

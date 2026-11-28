@@ -23,6 +23,7 @@ import type { PendingOrderDocument } from '@/lib/orders/orderDocuments';
 import { useCommercialPresentations } from '@/hooks/useCommercialPresentations';
 import type { CommercialPresentation } from '@/lib/products/commercialPresentation';
 import { expandCommercialOrderItem, getDefaultCommercialUnitPrice, getOrderItemLineTotal, isSaleVariantAllowed, isGlucodryGD2, isChocolateCB3, isAmendoimAM3 } from '@/lib/orders/commercialOrderItem';
+import { duplicateCommercialSaleLine, selectCommercialSaleLineVariant } from '@/lib/orders/commercialSaleDraft';
 import { getPhysicalIdentityUnit } from '@/lib/productVariants';
 import { isTrufaSealedP100, sumTrufaSealedStock } from '@/lib/orders/trufaSealedP100';
 import { upsertOrderLogisticsExpense } from '@/lib/financial/orderLogisticsExpense';
@@ -115,6 +116,10 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
     if (channel !== 'whatsapp' || !item.product_id) return null;
     const product = products.find(candidate => candidate.id === item.product_id);
     if (!product) return null;
+    // Preço oficial só deve aparecer após identidade física e quantidade conferíveis.
+    if ((product.variation_mode === 'variacoes_fisicas' && !item.variant_id
+      && item.commercial_presentation?.composition_mode !== 'composite')
+      || !Number.isFinite(item.commercial_quantity) || item.commercial_quantity <= 0) return null;
     const quote = resolveDirectSalePriceAdvice(
       officialPriceRows, product, item, items,
     );
@@ -169,25 +174,29 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
 
   const addItem = () => setItems((current) => [...current, { product_id: '', variant_id: null, quantity: 1, commercial_quantity: 1, unit_price: 0, commercial_presentation: null }]);
   const duplicateItemForFlavor = (index: number) => {
-    setItems(current => {
-      const source = current[index];
-      if (!source?.product_id) return current;
-      const sourcePresentation = source.commercial_presentation;
-      // Uma apresentação vinculada à variante física antiga não pode ser
-      // herdada ao selecionar outro sabor. As composições independentes da
-      // variante são preservadas; a validação existente exige nova seleção.
-      const safePresentation = sourcePresentation?.composition_mode === 'composite'
-        || !sourcePresentation?.variant_id ? sourcePresentation : null;
-      const copy: SaleItem = {
-        ...source,
-        variant_id: null,
-        commercial_presentation: safePresentation,
-        quantity: safePresentation?.conversion_factor ?? 1,
-        commercial_quantity: 1,
-        _unit_price_text: undefined,
-      };
-      return [...current.slice(0, index + 1), copy, ...current.slice(index + 1)];
+    const source = items[index];
+    if (source?.commercial_presentation?.variant_id
+      && source.commercial_presentation.composition_mode !== 'composite') {
+      toast.info('Apresentação vinculada ao sabor anterior: selecione nova apresentação e quantidade.');
+    }
+    setItems(current => duplicateCommercialSaleLine(current, index));
+  };
+
+  // Somente altera valores na tela após um clique explícito. Fonte de preço: Operações.
+  // A referência de cada linha considera o mix inteiro antes da aplicação em lote.
+  const applyOfficialPricesToAll = () => {
+    if (channel !== 'whatsapp') return;
+    let changed = 0;
+    const nextItems = items.map(item => {
+      const advice = getOfficialPriceAdvice(item);
+      if (!advice || !Number.isFinite(advice.amount) || advice.amount <= 0
+        || Math.abs(Number(item.unit_price) - advice.amount) <= 0.005) return item;
+      changed++;
+      return { ...item, unit_price: advice.amount, _unit_price_text: undefined };
     });
+    if (!changed) return toast.info('Nenhuma linha elegível com diferença de preço oficial.');
+    setItems(nextItems);
+    toast.success(`Tabela oficial aplicada em ${changed} item(ns). Confira o total negociado.`);
   };
 
   const updateItem = (index: number, patch: Partial<SaleItem>) => {
@@ -202,7 +211,9 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
   const pickVariant = (index: number, variantId: string) => {
     const variant = variants.find((item) => item.id === variantId);
     const product = products.find((item) => item.id === items[index]?.product_id);
-    updateItem(index, { variant_id: variantId || null, unit_price: product ? getDefaultCommercialUnitPrice(product, variant) : 0, _unit_price_text: undefined, commercial_presentation: null, commercial_quantity: 1 });
+    const canonicalPrice = product ? getDefaultCommercialUnitPrice(product, variant) : 0;
+    setItems(current => current.map((item, i) => i === index
+      ? selectCommercialSaleLineVariant(item, variantId || null, canonicalPrice) : item));
   };
 
   const presentationKey = (productId: string, _variantId: string | null) => productId;
@@ -348,7 +359,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-6">
         <div className="space-y-5 pb-4">
           <section className="space-y-3 rounded-xl border bg-muted/20 p-3 sm:p-4">
           <h3 className="text-sm font-semibold">Contexto da venda</h3>
@@ -376,7 +387,20 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
           </section>
 
           <section className="space-y-3 rounded-xl border p-3 sm:p-4">
-          <div className="flex items-center justify-between"><h3 className="text-sm font-semibold">Itens</h3><Button size="sm" variant="outline" className="h-8 gap-1 text-xs" onClick={addItem}><Plus className="h-3.5 w-3.5" /> Adicionar item</Button></div>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold">Itens</h3>
+            <div className="flex flex-wrap gap-2">
+              {channel === 'whatsapp' && items.length > 0 && (
+                <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={applyOfficialPricesToAll}
+                  title="Substitui os valores negociados das linhas elegíveis pela tabela oficial de Operações">
+                  Aplicar tabela aos itens
+                </Button>
+              )}
+              <Button type="button" size="sm" variant="outline" className="h-8 gap-1 text-xs" onClick={addItem}>
+                <Plus className="h-3.5 w-3.5" /> Adicionar item
+              </Button>
+            </div>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <Input aria-label="Buscar produto para venda" className="h-8 min-w-[180px] flex-1 text-xs" placeholder="Buscar produto ou SKU..." value={productSearch} onChange={e => setProductSearch(e.target.value)} />
             <label className="flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
@@ -403,14 +427,14 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
               </p>
             )}
             {items.map((item, index) => (
-              <div key={index} className="space-y-1">
+              <div key={index} className="min-w-0 space-y-1">
                 {index > 0 && !item.variant_id && products.find(product => product.id === item.product_id)?.variation_mode === 'variacoes_fisicas'
                   && item.commercial_presentation?.composition_mode !== 'composite' && (
                     <p className="text-[11px] text-amber-700 dark:text-amber-300">Selecione a variante física deste item antes de registrar a venda.</p>
                   )}
-                <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[minmax(140px,1fr)_minmax(120px,0.9fr)_minmax(120px,0.9fr)_5rem_10rem_2.5rem] sm:gap-1.5">
+                <div className="grid min-w-0 grid-cols-1 items-center gap-2 sm:grid-cols-2 sm:gap-2" data-testid="commercial-order-item-grid">
                 <Select value={item.product_id} onValueChange={(v) => pickProduct(index, v)}>
-                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Produto" /></SelectTrigger>
+                  <SelectTrigger className="h-8 min-w-0 text-xs"><SelectValue placeholder="Produto" /></SelectTrigger>
                   <SelectContent>
                     {visibleProducts.map((product) => (
                       <SelectItem key={product.id} value={product.id} className="text-xs">{product.name}</SelectItem>
@@ -423,12 +447,12 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
                   const variant = item.variant_id ? variants.find(candidate => candidate.id === item.variant_id) : null;
                   updateItem(index, { commercial_presentation: presentation, variant_id: presentation?.composition_mode === 'composite' ? null : item.variant_id, commercial_quantity: 1, unit_price: product ? getDefaultCommercialUnitPrice(product, variant, presentation) : 0, _unit_price_text: undefined });
                 }} disabled={!item.product_id}>
-                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Apresentação" /></SelectTrigger>
+                  <SelectTrigger className="h-8 min-w-0 text-xs"><SelectValue placeholder="Apresentação" /></SelectTrigger>
                   <SelectContent><SelectItem value="__direct__">Unidade direta</SelectItem>{(presentationsByIdentity[presentationKey(item.product_id, item.variant_id ?? null)] ?? []).filter(p => p.composition_mode === 'composite' || p.variant_id === item.variant_id).map(presentation => <SelectItem key={presentation.id} value={presentation.id}>{presentation.name}</SelectItem>)}</SelectContent>
                 </Select>
                 {products.find(product => product.id === item.product_id)?.variation_mode === 'variacoes_fisicas' && item.commercial_presentation?.composition_mode !== 'composite' ? (
                   <Select value={item.variant_id || ''} onValueChange={(value) => pickVariant(index, value)}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Variante" /></SelectTrigger>
+                    <SelectTrigger className="h-8 min-w-0 text-xs"><SelectValue placeholder="Variante" /></SelectTrigger>
                     <SelectContent>
                       {variants.filter((variant) => variant.product_id === item.product_id).map((variant) => (
                         <SelectItem key={variant.id} value={variant.id} className="text-xs">{variant.variant_name} · {variant.sku}</SelectItem>
@@ -441,7 +465,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
                   onChange={(e) => updateItem(index, { commercial_quantity: Number(e.target.value) })}
                 />
                 <CurrencyInput
-                  className="h-8 min-w-[10rem] text-right text-xs tabular-nums"
+                  className="h-8 w-full min-w-0 text-right text-xs tabular-nums"
                   aria-label="Valor unitário"
                   placeholder="R$ 0,00"
                   value={item._unit_price_text ?? formatBrazilianCurrencyInput(item.unit_price ?? 0)}
@@ -453,7 +477,7 @@ export function InboxSaleDialog({ open, onOpenChange, contactId, conversationId,
                     if (parsed) updateItem(index, { unit_price: parsed.number });
                   }}
                 />
-                <div className="flex items-center gap-1">
+                <div className="flex flex-wrap items-center justify-end gap-1">
                   <Button size="icon" variant="outline" className="h-8 w-8" disabled={!item.product_id} aria-label="Duplicar linha para outro sabor" title="Duplicar produto e apresentação para outro sabor" onClick={() => duplicateItemForFlavor(index)}>
                     <Copy className="h-3.5 w-3.5" />
                   </Button>
