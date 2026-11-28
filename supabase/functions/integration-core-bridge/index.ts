@@ -308,7 +308,9 @@ async function executeAction(payload: Record<string, unknown>) {
   if (typeof payload.action === 'string' && D11_ACTIONS.includes(payload.action)) {
     const enabled = Deno.env.get('SHOPEE_D11_BRIDGE_ENABLED') === 'true'
       && (payload.action !== 'shopee.d11.effect.claim'
-        || Deno.env.get('SHOPEE_D11_EFFECT_CLAIM_ENABLED') === 'true');
+        || Deno.env.get('SHOPEE_D11_EFFECT_CLAIM_ENABLED') === 'true')
+      && (payload.action !== 'shopee.d11.intake.commit'
+        || Deno.env.get('SHOPEE_D11_INTAKE_COMMIT_ENABLED') === 'true');
     return executeD11BridgeAction(core, payload, { enabled });
   }
 
