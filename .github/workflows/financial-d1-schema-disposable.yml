@@ -10,6 +10,9 @@ on:
       - 'supabase/tests/fin_d1_account_projection_disposable.sql'
       - 'supabase/tests/fin_d1_cross_writer_concurrency_disposable.sh'
       - 'supabase/tests/fin_d1_legacy_coexistence_disposable.sql'
+      - 'supabase/tests/fin_d1_consumer_export_disposable.sql'
+      - 'src/lib/financial/d1SqlConsumerContract.disposable.ts'
+      - 'src/lib/financial/d1ConsumerCompatibilityCandidate.ts'
       - 'docs/architecture/proposals/FIN_D1_ACCOUNT_PROJECTION_NAO_APLICAR.sql'
       - 'docs/architecture/proposals/FIN_D1_RECTIFICATION_WRITER_NAO_APLICAR.sql'
       - 'docs/architecture/proposals/FIN_D1_WRITER_CANDIDATE_NAO_APLICAR.sql'
@@ -62,6 +65,19 @@ jobs:
           PGPASSWORD: localtest
           PGDATABASE: fin_d1_disposable
         run: bash supabase/tests/fin_d1_cross_writer_concurrency_disposable.sh
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: PostgreSQL to TypeScript consumer contract
+        env:
+          PGPASSWORD: localtest
+        run: |
+          set -euo pipefail
+          export_file=$(mktemp)
+          trap 'rm -f "$export_file"' EXIT
+          psql -X -h localhost -U postgres -d fin_d1_disposable -v ON_ERROR_STOP=1 -At -f supabase/tests/fin_d1_consumer_export_disposable.sql > "$export_file"
+          FIN_D1_EXPORT_FILE="$export_file" node --experimental-strip-types src/lib/financial/d1SqlConsumerContract.disposable.ts
 
       - name: Legacy coexistence negative probes (activation blockers)
         env:
