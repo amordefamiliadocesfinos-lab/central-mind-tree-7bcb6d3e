@@ -99,17 +99,17 @@ function explainAc02ReadFailure(error:unknown):string {
  const value=error as {name?:unknown;context?:{status?:unknown}}|null;
  const name=value?.name;
  const status=value?.context?.status;
- if(name==="FunctionsFetchError")return "AC-02: falha de rede ao alcançar a função protegida. Conferir conexão e endpoint implantado; consulta não comprovada.";
- if(name==="FunctionsRelayError")return "AC-02: gateway da função indisponível. Conferir implantação e logs do endpoint; consulta não comprovada.";
+ if(name==="FunctionsFetchError")return "Não foi possível conectar à base oficial. Confira a internet e tente consultar novamente. Nenhum contexto foi confirmado. (Diagnóstico: falha de rede)";
+ if(name==="FunctionsRelayError")return "O serviço de continuidade está indisponível. Tente novamente ou solicite uma verificação ao responsável. Nenhum contexto foi confirmado. (Diagnóstico: serviço intermediário indisponível)";
  if(name==="FunctionsHttpError"){
-  if(status===401)return "AC-02: HTTP 401 — sessão ou JWT recusado pela função. Conferir autenticação na mesma sessão; nenhum pacote preparado.";
-  if(status===403)return "AC-02: HTTP 403 — permissão nucleo_manage não confirmada ou negada. Conferir concessão vigente com a autoridade competente; não alterar permissões aqui.";
-  if(status===404)return "AC-02: HTTP 404 — função ou módulo não localizado. Conferir endpoint implantado e cadastro M3 do CRM, sem presumir qual falhou.";
-  if(status===400||status===413)return "AC-02: requisição rejeitada pelo contrato (HTTP "+status+"). Conferir módulo e versão da função implantada.";
-  if(status===503||status===500)return "AC-02: serviço ou leitura protegida indisponível (HTTP "+status+"). Conferir logs da função, configuração e recorte autorizado; nenhum dado certificado.";
-  return "AC-02: função respondeu com falha HTTP "+(typeof status==="number"?status:"não identificada")+". Conferir status e logs sem liberar autoridade.";
+  if(status===401)return "Sua sessão não foi aceita. Entre novamente na sua conta e repita a consulta. Nenhum contexto foi preparado. (HTTP 401)";
+  if(status===403)return "Não foi possível confirmar sua permissão para esta consulta. Procure o responsável pelo acesso. Nenhuma permissão será alterada aqui. (HTTP 403)";
+  if(status===404)return "Não foi possível localizar o serviço ou o módulo solicitado. Solicite uma verificação ao responsável; ainda não sabemos qual está indisponível. (HTTP 404)";
+  if(status===400||status===413)return "A consulta não foi aceita. Solicite ao responsável a conferência do módulo e da versão publicada. (HTTP "+status+")";
+  if(status===503||status===500)return "O serviço não conseguiu consultar as informações autorizadas. Tente novamente ou procure o responsável. Nenhum dado foi confirmado. (HTTP "+status+")";
+  return "A consulta falhou. Procure o responsável para verificar a causa; nenhum acesso adicional foi concedido. (HTTP "+(typeof status==="number"?status:"não identificado")+")";
  }
- return "AC-02: falha não classificada na consulta protegida. Conferir sessão, rede e implantação; nenhum pacote preparado.";
+ return "Não foi possível concluir a consulta. Confira sua sessão e conexão; se persistir, procure o responsável. Nenhum contexto foi preparado.";
 }
 // Apenas classes textuais documentadas na função oficial; jamais exibir
 // o corpo bruto da resposta HTTP, que pode conter dados de infraestrutura.
@@ -125,13 +125,13 @@ async function classifyAc02ContractRejection(error:unknown):Promise<string|null>
   if(!parsed||typeof parsed!=="object"||Array.isArray(parsed))return null;
   const reason=(parsed as {error?:unknown}).error;
   switch(reason){
-   case "JSON inválido":return "Validação identificada: JSON inválido na função.";
-   case "Corpo inválido":return "Validação identificada: corpo JSON incompatível.";
+   case "JSON inválido":return "Detalhe para suporte: formato inválido na solicitação.";
+   case "Corpo inválido":return "Detalhe para suporte: conteúdo da solicitação incompatível.";
    case "Informe module_code válido e opções booleanas include_review/include_ac02":
-    return "Validação identificada: módulo, opções ou versão de contrato incompatíveis.";
+    return "Detalhe para suporte: módulo, opções ou versão incompatíveis.";
    case "Utilize módulo operacional externo":
-    return "Validação identificada: módulo NUC recusado pelo contrato.";
-   default:return "Validação HTTP 400 não reconhecida neste contrato; confrontar a revisão implantada e os logs autorizados.";
+    return "Detalhe para suporte: esta consulta não aceita o módulo Núcleo.";
+   default:return "Detalhe para suporte: motivo da recusa não reconhecido (HTTP 400). Conferir a versão publicada e os registros técnicos autorizados.";
   }
  }catch{return null;}
 }
