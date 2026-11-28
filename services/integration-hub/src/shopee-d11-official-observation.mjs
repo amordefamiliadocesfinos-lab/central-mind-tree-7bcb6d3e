@@ -45,31 +45,35 @@ export function createD11OfficialObservation({
  readConnection=readLiveShopeeOauthConnection,decryptToken=decryptShopeeToken,
  detailOrders=getOrderDetail,persistSnapshot=upsertLiveShopeeOrderSnapshot,fetchImpl=globalThis.fetch
 }={}){
- return async function observe({accountId,leaseId,revision}={}){
+ return async function observe({accountId,leaseId,revision,deadline=Infinity}={}){
   if(typeof readScope!=='function'||typeof recordObservation!=='function'
    ||!UUID.test(accountId??'')||!UUID.test(leaseId??'')||!Number.isSafeInteger(revision)||revision<1||legacy.has(accountId))
    return fail('observation_scope_unavailable');
   const args={accountId,leaseId,revision};
+  const within=()=>now()<deadline;
+  const timeout=()=>Math.max(1,Math.min(12000,deadline-now()));
   const valid=s=>s?.ok===true&&s.accountId===accountId&&s.leaseId===leaseId&&s.revision===revision
    &&s.partnerId===2047685&&Number.isSafeInteger(s.shopId)&&s.shopId>0&&SN.test(s.orderSn??'')
    &&Number.isSafeInteger(s.historyCutoff)&&s.historyCutoff>0&&Number.isFinite(Date.parse(s.leaseStartedAt))
    &&Date.parse(s.leaseStartedAt)<=now()&&Date.parse(s.expiresAt)>now()+1000;
   try{
+   if(!within())return fail('observation_budget_exhausted');
    const s=await readScope(args);
-   if(!valid(s))return fail('observation_scope_refused');
+   if(!within()||!valid(s))return fail('observation_scope_refused');
    const same=async()=>{
+    if(!within())return false;
     const p=await readScope(args);
-    return valid(p)&&p.shopId===s.shopId&&p.orderSn===s.orderSn&&p.historyCutoff===s.historyCutoff
+    return within()&&valid(p)&&p.shopId===s.shopId&&p.orderSn===s.orderSn&&p.historyCutoff===s.historyCutoff
       &&p.leaseStartedAt===s.leaseStartedAt&&p.expiresAt===s.expiresAt;
    };
-   const c=await readConnection({channel_account_id:accountId},{timeoutMs:12000});
+   const c=await readConnection({channel_account_id:accountId},{timeoutMs:timeout()});
    if(c?.ok!==true||Number(c.payload?.shop_id)!==s.shopId||Number(c.payload?.partner_id)!==s.partnerId
       ||!(Date.parse(c.payload?.access_token_expires_at)>now()+60000))return fail('observation_connection_refused');
    const partnerKey=getEnv('SHOPEE_LIVE_PARTNER_KEY'),cryptoKey=getEnv('SHOPEE_LIVE_TOKEN_ENCRYPTION_KEY');
    if(!partnerKey||!cryptoKey)return fail('observation_runtime_unavailable');
    const accessToken=await decryptToken(c.payload.access_token_ciphertext,cryptoKey);
-   if(!accessToken||!await same())return fail('observation_scope_changed');
-   const started=now(), budget=Math.min(12000,Date.parse(s.expiresAt)-started-1000);
+   if(!accessToken||!within()||!await same())return fail('observation_scope_changed');
+   const started=now(), budget=Math.min(12000,Date.parse(s.expiresAt)-started-1000,deadline-started);
    if(budget<=0||started<Date.parse(s.leaseStartedAt))return fail('observation_budget_exhausted');
    const controller=new AbortController(), timer=setTimeout(()=>controller.abort(),budget);
    let detail;
@@ -81,12 +85,12 @@ export function createD11OfficialObservation({
      fetchImpl:(url,init)=>fetchImpl(url,{...init,signal:controller.signal})});
    }finally{clearTimeout(timer);}
    const received=now();
-   if(controller.signal.aborted||received<started||received-started>budget)return fail('observation_budget_exhausted');
+   if(!within()||controller.signal.aborted||received<started||received-started>budget)return fail('observation_budget_exhausted');
    const prepared=prepareD11Observation(detail,s,received);
    if(!prepared.ok)return prepared;
    if(!await same())return fail('observation_scope_changed');
    const raw=await persistSnapshot({channel_account_id:accountId,external_entity_id:s.orderSn,
-    observed_at:new Date(received).toISOString(),payload:prepared.payload,payload_hash:prepared.hash},{timeoutMs:12000});
+    observed_at:new Date(received).toISOString(),payload:prepared.payload,payload_hash:prepared.hash},{timeoutMs:timeout()});
    if(raw?.ok!==true)return fail('observation_raw_unconfirmed');
    if(now()-received>30000||!await same())return fail('observation_scope_changed');
    // Recorder must enforce the same scope atomically in the Core. No retry
@@ -94,7 +98,7 @@ export function createD11OfficialObservation({
    const receipt=await recordObservation({p_account:accountId,p_lease:leaseId,p_revision:revision,
     p_shop:s.shopId,p_order:s.orderSn,p_hash:prepared.hash,p_payload:prepared.payload,
     p_request:prepared.requestId,p_started:new Date(started).toISOString(),p_received:new Date(received).toISOString()});
-   if(receipt?.status!=='observation_recorded'||!UUID.test(receipt.observation_id??'')||!UUID.test(receipt.raw_id??''))
+   if(!within()||receipt?.status!=='observation_recorded'||!UUID.test(receipt.observation_id??'')||!UUID.test(receipt.raw_id??''))
     return fail('observation_receipt_unconfirmed');
    return {ok:true,code:'observation_recorded',observationId:receipt.observation_id,rawId:receipt.raw_id,
     orderSn:s.orderSn,shopId:s.shopId,ordersWritten:0};

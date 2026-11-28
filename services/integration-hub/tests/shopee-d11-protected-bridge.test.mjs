@@ -22,7 +22,13 @@ function fixture(){
  const handler=createBridgeHandler({getSecret:()=>SECRET,checkCore:async()=>true,executeAction:p=>executeD11BridgeAction(core,p,{
  enabled:f.enabled,now:()=>N,readPolicy:async(_core,{action})=>({ok:f.admitted,profile:{account:A,revision:1,partner:2047685,shop:123,
  action,history_cutoff:Math.floor(N/1000)-3600,expires_at:iso(N+60000)}}),
- checkLease:async()=>({ok:f.lease})})});
+ checkLease:async()=>({ok:f.lease}),
+ prepareReconciliation:()=>async scope=>{
+  assert.equal(scope.expectedObservationId,I);
+  return {ok:true,orderSn:S,shopId:123,observationId:I,rawId:L,
+   readExistingBatch:async()=>({ok:true,payload:{channel_account_id:A,snapshots:[],mappings:[]}}),
+   verifyCanonicalOrder:async p=>({ok:true,status:'verified_existing',channel_account_id:p.channel_account_id,order_number:p.order_number,order_id:I})};
+ }})});
  f.call=({action,data,secret=SECRET})=>callCoreBridgeAction({action,data,url:CORE_BRIDGE_URL,secret,logger:()=>{},
  fetchImpl:(url,options)=>handler(new Request(url,options))});
  f.adapters=createD11BridgeAdapters({enabled:true,call:f.call});
@@ -75,4 +81,18 @@ test('D11 observation factory connects signed scope and recorder without an exte
  assert.equal(r.ok,true);assert.equal(r.observationId,I);assert.equal(r.ordersWritten,0);
  assert.equal(writes.length,1);assert.equal(f.calls.length,1);
  assert.equal(f.calls[0].args.p_hash,writes[0].payload_hash);
+});
+
+test('D11 signed reconciliation actions pin receipt and reuse the existing projection payload validation',async()=>{
+ const f=fixture(),pinned={...scope,observationId:I};
+ const b=await f.adapters.readReconciliation(pinned);
+ assert.equal(b.status,'reconciliation_batch');assert.equal(b.observation_id,I);
+ const p={channel_account_id:A,marketplace_account:'fixture',order_number:S,order_date:'2026-11-27',
+ total_value:20,payment_method:'Pix',external_status:'READY_TO_SHIP',items:[{product_id:I,variant_id:L,
+ quantity:2,commercial_quantity:1,physical_multiplier:2,unit_price:20,external_item_key:'fixture',
+ item_id:'1',model_id:'2',mapping_id:I,composition_position:0}]};
+ assert.equal((await f.adapters.verifyReconciliation(pinned,p)).status,'verified_existing');
+ assert.equal(await f.adapters.verifyReconciliation(pinned,{...p,channel_account_id:L}),null);
+ assert.equal(await f.adapters.verifyReconciliation(pinned,{...p,items:[]}),null);
+ assert.deepEqual(f.calls,[]);
 });

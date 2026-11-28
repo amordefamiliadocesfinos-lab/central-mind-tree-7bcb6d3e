@@ -86,3 +86,12 @@ test('D11 identical historic Raw can be reconciled only with current receipt; no
  const b=await r.readExistingBatch(batch);assert.equal(b.ok,true);
  assert.equal(b.payload.snapshots[0].observed_at,iso(NOW-1000));
 });
+
+test('D11 reader refuses a different receipt even when order and content are identical',async()=>{
+ const f=fixture();
+ assert.equal((await f.run({...scope,expectedObservationId:A})).ok,false);
+ const r=await f.run({...scope,expectedObservationId:I});
+ assert.equal(r.ok,true);assert.equal(r.observationId,I);
+ f.observationId=A;
+ assert.equal((await r.readExistingBatch(batch)).ok,false);
+});
