@@ -413,3 +413,32 @@ test('B15 old field-only denial does not revoke a newer explicit declaration', (
   ], {});
   assert.equal(result.find(item => item.field === 'email')?.state, 'empty');
 });
+
+test('B16 older explicit value revocation does not block later reaffirmation', () => {
+  const result = proposeCrmConversationProfileFields([
+    msg('revoke', 'customer', 'E-mail: ana@example.com não é meu' + String.fromCharCode(10) + 'CEP: 88220-000, desconsiderar', '2026-11-27T10:00:00Z'),
+    msg('reconfirm', 'customer', 'Meu e-mail é ana@example.com' + String.fromCharCode(10) + 'CEP: 88220-000', '2026-11-27T13:00:00Z'),
+  ], {});
+  assert.equal(result.find(item => item.field === 'email')?.state, 'empty');
+  assert.equal(result.find(item => item.field === 'zip_code')?.state, 'empty');
+});
+
+test('B16 later explicit value revocation still blocks earlier labelled data regardless of input order', () => {
+  const result = proposeCrmConversationProfileFields([
+    msg('denied', 'customer', 'E-mail: ana@example.com não é meu', '2026-11-27T14:00:00Z'),
+    msg('old', 'customer', 'Meu e-mail é ana@example.com', '2026-11-27T12:00:00Z'),
+  ], {});
+  assert.equal(result.find(item => item.field === 'email')?.state, 'ambiguous');
+});
+
+test('B16 newer free-text hint after prior revocation remains review-only', () => {
+  const result = proposeCrmConversationProfileFields([
+    msg('old', 'customer', 'Use livre@example.com', '2026-11-27T11:00:00Z'),
+    msg('deny', 'customer', 'E-mail: livre@example.com não é meu', '2026-11-27T12:00:00Z'),
+    msg('new', 'customer', 'Considere livre@example.com', '2026-11-27T13:00:00Z'),
+  ], {});
+  const email = result.find(item => item.field === 'email');
+  assert.equal(email?.state, 'unverified');
+  assert.equal(email?.value, 'livre@example.com');
+  assert.equal(email?.distinctValues, 1);
+});
