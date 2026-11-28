@@ -512,8 +512,8 @@ export function MobileFinancialView({
           onOpenChange={(o) => !o && setPaymentEntry(null)}
           entry={paymentEntry}
           accounts={accounts}
-          onConfirm={async (value, accountId, notes) => {
-            await onRegisterPayment(paymentEntry.id, value, accountId, notes);
+          onConfirm={async (value, accountId, notes, paymentDate) => {
+            await onRegisterPayment(paymentEntry.id, value, accountId, notes, paymentDate);
             setPaymentEntry(null);
           }}
         />
