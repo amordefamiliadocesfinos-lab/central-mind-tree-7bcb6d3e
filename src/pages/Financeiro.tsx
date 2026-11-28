@@ -94,6 +94,7 @@ export default function Financeiro() {
         onUpdateEntry={updateEntry}
         onDeleteEntry={deleteEntry}
         onRegisterPayment={registerPayment}
+        onRefreshEntries={() => fetchEntries()}
         onSaveAccount={saveAccount}
         onSaveCategory={saveCategory}
       />
