@@ -442,3 +442,30 @@ test('B16 newer free-text hint after prior revocation remains review-only', () =
   assert.equal(email?.value, 'livre@example.com');
   assert.equal(email?.distinctValues, 1);
 });
+
+test('B17 quoted reply tail is excluded while direct customer preface remains', () => {
+  const result = proposeCrmConversationProfileFields([
+    msg('reply', 'customer', ['Meu e-mail é titular@example.com', 'Em 28 nov 2026, Fulano escreveu:', 'E-mail: terceiro@example.com', 'CEP: 88220-000'].join(String.fromCharCode(10))),
+  ], {});
+  assert.equal(result.length, 1);
+  assert.equal(result[0].field, 'email');
+  assert.equal(result[0].value, 'titular@example.com');
+  assert.equal(result[0].state, 'empty');
+});
+
+test('B17 quoted original message and English reply headers do not create evidence', () => {
+  const result = proposeCrmConversationProfileFields([
+    msg('original', 'customer', ['On Nov 27, Person wrote:', 'E-mail: outro@example.com'].join(String.fromCharCode(10))),
+    msg('marker', 'customer', ['--- Mensagem original ---', 'Meu nome é Pessoa Terceira'].join(String.fromCharCode(10))),
+    msg('quote', 'customer', '> E-mail: citado@example.com' + String.fromCharCode(10) + '“CEP: 88220-000”'),
+  ], {});
+  assert.equal(result.length, 0);
+});
+
+test('B17 standalone customer declaration without reply header continues to work', () => {
+  const result = proposeCrmConversationProfileFields([
+    msg('plain', 'customer', 'E-mail: cliente@example.com' + String.fromCharCode(10) + 'Cidade: Itapema'),
+  ], {});
+  assert.equal(result.find(item => item.field === 'email')?.state, 'empty');
+  assert.equal(result.find(item => item.field === 'city')?.value, 'Itapema');
+});
