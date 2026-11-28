@@ -220,6 +220,11 @@ export function ConversationProfileSuggestions({
             <span className="font-semibold">{labels[item.field]}: {item.value}</span>
           </label>
           <p className="text-muted-foreground">{states[item.state]}</p>
+          {item.distinctValues > 1 && (
+            <p role="status" className="text-[11px] font-medium text-amber-700 dark:text-amber-300">
+              {item.distinctValues} valores diferentes encontrados na conversa. A informação exige confronto das fontes; não escolha apenas a mais recente.
+            </p>
+          )}
           <p className="mt-1 break-words text-[11px] text-muted-foreground">
             Trecho da conversa: “{item.evidenceExcerpt}”
           </p>
