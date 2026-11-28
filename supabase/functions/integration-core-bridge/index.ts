@@ -1,4 +1,4 @@
-import { D11_ACTIONS, executeD11BridgeAction } from './d11-bridge.mjs';
+import { D11_ACTIONS, executeD11BridgeAction, isD11BridgeActionEnabled } from './d11-bridge.mjs';
 import { sanitizeIntakeSnapshot, canonicalShopeeChannelAccount } from './shopee-intake-read-shared.mjs';
 import { syncLogisticsReadState } from './logistics-read-state.mjs';
 import { createClient } from 'npm:@supabase/supabase-js@2';
@@ -306,9 +306,7 @@ async function executeAction(payload: Record<string, unknown>) {
   // D11 library actions are authenticated by the existing HMAC handler.
   // Independent default-off gates; no effect activation through the read gate.
   if (typeof payload.action === 'string' && D11_ACTIONS.includes(payload.action)) {
-    const enabled = Deno.env.get('SHOPEE_D11_BRIDGE_ENABLED') === 'true'
-      && (payload.action !== 'shopee.d11.effect.claim'
-        || Deno.env.get('SHOPEE_D11_EFFECT_CLAIM_ENABLED') === 'true');
+    const enabled = isD11BridgeActionEnabled(payload.action, (key: string) => Deno.env.get(key));
     return executeD11BridgeAction(core, payload, { enabled });
   }
 

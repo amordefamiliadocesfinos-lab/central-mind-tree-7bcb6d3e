@@ -32,7 +32,7 @@ BEGIN
    OR p_account IN ('8a8ad166-0317-4597-8be6-e43fb46b4d1b','b4027369-5abf-4ac1-ab24-862334fae892')
    OR p_code IS NULL OR p_code NOT IN ('d11_preflight_verified_existing','d11_preflight_no_candidate',
      'd11_preflight_scope_refused','d11_preflight_budget_exhausted','d11_preflight_observation_refused',
-     'd11_preflight_reconciliation_refused','d11_preflight_unavailable')
+     'd11_preflight_reconciliation_refused','d11_preflight_unavailable','d11_intake_written')
    OR ((p_candidate IS NULL) IS DISTINCT FROM (p_code='d11_preflight_no_candidate'))
  THEN RETURN jsonb_build_object('status','invalid_request'); END IF;
  SELECT * INTO v FROM public.shopee_cycle_state WHERE channel_account_id=p_account FOR UPDATE;
@@ -40,6 +40,9 @@ BEGIN
    OR v.lease_expires_at IS NULL OR v.lease_expires_at<=clock_timestamp()
    OR v.candidate_order_sn IS DISTINCT FROM p_candidate
  THEN RETURN jsonb_build_object('status','stale_lease'); END IF;
+ IF p_code='d11_intake_written' AND NOT EXISTS(SELECT 1 FROM public.orders WHERE channel_account_id=p_account AND channel='shopee'
+  AND order_number=p_candidate AND sale_origin='shopee_open_platform' AND deleted_at IS NULL)
+ THEN RETURN jsonb_build_object('status','candidate_refused'); END IF;
  -- Release remains possible after policy pause. Cannot reset blocked/complete work.
  IF p_candidate IS NOT NULL AND NOT EXISTS(SELECT 1 FROM public.shopee_cycle_orders
    WHERE channel_account_id=p_account AND order_sn=p_candidate AND state='pending')

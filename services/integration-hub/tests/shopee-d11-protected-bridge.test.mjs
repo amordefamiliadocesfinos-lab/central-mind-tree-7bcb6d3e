@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createBridgeHandler} from '../../../supabase/functions/integration-core-bridge/handler.mjs';
-import {executeD11BridgeAction} from '../../../supabase/functions/integration-core-bridge/d11-bridge.mjs';
+import {executeD11BridgeAction,isD11BridgeActionEnabled} from '../../../supabase/functions/integration-core-bridge/d11-bridge.mjs';
 import {callCoreBridgeAction,CORE_BRIDGE_URL,sha256Hex} from '../src/core-bridge.mjs';
 import {createD11BridgeAdapters,createD11BridgeObservation} from '../src/shopee-d11-bridge-adapter.mjs';
 const A='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',L='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',I='cccccccc-cccc-4ccc-8ccc-cccccccccccc',S='SYNTHETIC001';
@@ -14,12 +14,13 @@ const record={p_account:A,p_lease:L,p_revision:1,p_shop:123,p_order:S,p_hash:sha
  p_request:'req_1',p_started:iso(N-1000),p_received:iso(N)};
 const effect={...scope,shopId:123,orderSn:S,packageNumber:'PKG1',requestHash:'b'.repeat(64),observationId:I,effect:'ship'};
 function fixture(){
- const f={enabled:true,admitted:true,lease:true,reads:0,calls:[],claim:{status:'claimed',fresh:true,attempt_id:I}};
+ const f={enabled:true,orders:[],admitted:true,lease:true,reads:0,calls:[],claim:{status:'claimed',fresh:true,attempt_id:I}};
  const state={channel_account_id:A,lease_id:L,lease_policy_revision:1,candidate_order_sn:S,halted_code:null,
  updated_at:iso(N-10000),lease_expires_at:iso(N+60000)};
- const core={from(table){f.reads++;const q={select(){return q},eq(){return q},maybeSingle(){return Promise.resolve({data:table==='shopee_cycle_state'?state:{channel_account_id:A,order_sn:S,state:'pending'}})}};return q;},
+ const core={from(table){f.reads++;const q={select(){return q},eq(){return q},limit(){return Promise.resolve({data:f.orders})},maybeSingle(){return Promise.resolve({data:table==='shopee_cycle_state'?state:{channel_account_id:A,order_sn:S,state:'pending'}})}};return q;},
  async rpc(name,args){f.calls.push({name,args});
  if(name==='acquire_shopee_d11_preflight')return {data:{status:'acquired',channel_account_id:A,lease_id:L,policy_revision:1,candidate_order_sn:S,expires_at:iso(N+60000),work_budget_ms:48000,private:'never-return'}};
+ if(name==='commit_shopee_d11_intake')return {data:{status:'intake_written',order_id:I,separation_id:L,observation_id:args.p_observation}};
  if(name==='finish_shopee_d11_preflight')return {data:{status:'finished'}};
  return {data:name==='record_shopee_cycle_observation'?{status:'observation_recorded',observation_id:I,raw_id:L,private:'never-return'}:f.claim};}};
  const handler=createBridgeHandler({getSecret:()=>SECRET,checkCore:async()=>true,executeAction:p=>executeD11BridgeAction(core,p,{
@@ -117,4 +118,34 @@ test('D11 signed preflight lifecycle accepts only account acquire and pending-on
  }
  f.enabled=false;assert.equal(await f.adapters.acquirePreflight(A),null);
  assert.equal(f.calls.length,2);
+});
+
+test('D11 signed protected intake classifies absence, existing order and tombstone, then pins commit RPC',async()=>{
+ const f=fixture(),pinned={...scope,observationId:I};
+ const p={channel_account_id:A,marketplace_account:'fixture',order_number:S,order_date:'2026-11-27',
+ total_value:20,payment_method:'Pix',external_status:'READY_TO_SHIP',items:[{product_id:I,variant_id:L,
+ quantity:2,commercial_quantity:1,physical_multiplier:2,unit_price:20,external_item_key:'fixture',
+ item_id:'1',model_id:'2',mapping_id:I,composition_position:0}]};
+ assert.equal((await f.adapters.readIntake(pinned)).canonical_state,'absent');
+ f.orders=[{id:I,channel_account_id:A,channel:'shopee',order_number:S,sale_origin:'shopee_open_platform',
+ deleted_at:null,status:'pendente',operational_status:'todo'}];
+ assert.equal((await f.adapters.readIntake(pinned)).canonical_state,'existing');
+ f.orders[0].deleted_at=iso(N);assert.equal(await f.adapters.readIntake(pinned),null);
+ f.orders=[];assert.equal(await f.adapters.commitIntake(pinned,{...p,channel_account_id:L}),null);
+ assert.equal(await f.adapters.commitIntake(pinned,{...p,items:[]}),null);
+ f.enabled=false;assert.equal(await f.adapters.commitIntake(pinned,p),null);
+ assert.deepEqual(f.calls,[]);f.enabled=true;
+ const ack=await f.adapters.commitIntake(pinned,p);assert.equal(ack.status,'intake_written');
+ assert.equal(ack.observation_id,I);assert.deepEqual(f.calls,[{name:'commit_shopee_d11_intake',
+ args:{p_account:A,p_lease:L,p_revision:1,p_observation:I,p_projection:p}}]);
+});
+
+test('D11 default-off flags isolate intake commit from observation and shipment claim',()=>{
+ const env={},get=k=>env[k];
+ for(const a of ['shopee.d11.intake.read','shopee.d11.intake.commit','shopee.d11.effect.claim'])assert.equal(isD11BridgeActionEnabled(a,get),false);
+ env.SHOPEE_D11_BRIDGE_ENABLED='true';assert.equal(isD11BridgeActionEnabled('shopee.d11.intake.read',get),true);
+ assert.equal(isD11BridgeActionEnabled('shopee.d11.intake.commit',get),false);
+ env.SHOPEE_D11_INTAKE_COMMIT_ENABLED='true';assert.equal(isD11BridgeActionEnabled('shopee.d11.intake.commit',get),true);
+ assert.equal(isD11BridgeActionEnabled('shopee.d11.effect.claim',get),false);
+ env.SHOPEE_D11_BRIDGE_ENABLED='false';assert.equal(isD11BridgeActionEnabled('shopee.d11.intake.commit',get),false);
 });

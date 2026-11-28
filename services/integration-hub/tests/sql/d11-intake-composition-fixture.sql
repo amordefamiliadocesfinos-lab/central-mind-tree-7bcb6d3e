@@ -13,6 +13,7 @@ GRANT UPDATE ON public.marketplace_product_mappings,public.marketplace_product_m
 \ir d11-policy-storage-schema.sql
 \ir d11-policy-lease-schema.sql
 \ir d11-policy-acquire-candidate.sql
+\ir d11-preflight-lifecycle-candidate.sql
 \ir d11-observation-candidate.sql
 \ir d11-observation-fixture-helper.sql
 \ir ../../../../supabase/proposals/P4_SHOPEE_CORE_COMMERCIAL_SNAPSHOT_UNAPPLIED.sql

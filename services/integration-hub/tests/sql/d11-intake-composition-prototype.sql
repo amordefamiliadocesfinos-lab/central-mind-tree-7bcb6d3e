@@ -22,6 +22,7 @@ BEGIN
  ASSERT public.commit_shopee_d11_intake(a,l,1,obs,projection#-'{items,1}')->>'status'='intake_composition_refused';
  ASSERT public.commit_shopee_d11_intake(a,l,1,obs,jsonb_set(projection,'{total_value}','21'))->>'status'='intake_projection_refused';
  ASSERT NOT EXISTS(SELECT 1 FROM public.orders WHERE channel_account_id=a);
+ ASSERT public.finish_shopee_d11_preflight(a,l,1,'D11SYNTHETIC1','d11_intake_written')->>'status'='candidate_refused';
  BEGIN
   PERFORM set_config('d11.fixture_corrupt','on',true);
   PERFORM public.commit_shopee_d11_intake(a,l,1,obs,projection);
@@ -41,6 +42,8 @@ BEGIN
  ASSERT (SELECT count(*) FROM public.order_separation WHERE order_id=oid AND separation_status='todo')=1;
  ASSERT public.commit_shopee_d11_intake(a,l,1,obs,projection)->>'status'='intake_existing_requires_reconciliation';
  ASSERT (SELECT count(*) FROM public.orders WHERE channel_account_id=a)=1;
+ ASSERT public.finish_shopee_d11_preflight(a,l,1,'D11SYNTHETIC1','d11_intake_written')->>'status'='finished';
+ ASSERT (SELECT state FROM public.shopee_cycle_orders WHERE channel_account_id=a AND order_sn='D11SYNTHETIC1')='pending';
 END $$;
 RESET ROLE;
 ROLLBACK;

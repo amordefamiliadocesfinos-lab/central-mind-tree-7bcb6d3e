@@ -7,7 +7,12 @@ const SN=/^[A-Za-z0-9]{8,100}$/;
 const HASH=/^[0-9a-f]{64}$/;
 const LEGACY=new Set(['8a8ad166-0317-4597-8be6-e43fb46b4d1b','b4027369-5abf-4ac1-ab24-862334fae892']);
 const scopeKeys=['channel_account_id','lease_id','revision'];
-export const D11_ACTIONS=Object.freeze(['shopee.d11.scope.read','shopee.d11.observation.record','shopee.d11.effect.claim','shopee.d11.reconcile.read','shopee.d11.reconcile.verify','shopee.d11.preflight.acquire','shopee.d11.preflight.finish','shopee.d11.discovery.scope','shopee.d11.discovery.finish']);
+export const D11_ACTIONS=Object.freeze(['shopee.d11.scope.read','shopee.d11.observation.record','shopee.d11.effect.claim','shopee.d11.reconcile.read','shopee.d11.reconcile.verify','shopee.d11.preflight.acquire','shopee.d11.preflight.finish','shopee.d11.discovery.scope','shopee.d11.discovery.finish','shopee.d11.intake.read','shopee.d11.intake.commit']);
+export function isD11BridgeActionEnabled(action,getEnv){
+ return D11_ACTIONS.includes(action)&&getEnv('SHOPEE_D11_BRIDGE_ENABLED')==='true'
+  &&(action!=='shopee.d11.effect.claim'||getEnv('SHOPEE_D11_EFFECT_CLAIM_ENABLED')==='true')
+  &&(action!=='shopee.d11.intake.commit'||getEnv('SHOPEE_D11_INTAKE_COMMIT_ENABLED')==='true');
+}
 const id=v=>typeof v==='string'&&UUID.test(v);
 const text=(v,re)=>typeof v==='string'&&re.test(v);
 const object=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
@@ -25,10 +30,10 @@ export function validateD11Payload(p){
   &&Object.entries(p.detail_hashes).every(([k,v])=>text(k,SN)&&text(v,HASH));
  if(p.action===D11_ACTIONS[6])return exact(p,[...base,'candidate_order_sn','code'])
   &&(p.candidate_order_sn===null||text(p.candidate_order_sn,SN))
-  &&['d11_preflight_verified_existing','d11_preflight_no_candidate','d11_preflight_scope_refused','d11_preflight_budget_exhausted','d11_preflight_observation_refused','d11_preflight_reconciliation_refused','d11_preflight_unavailable'].includes(p.code)
+  &&['d11_preflight_verified_existing','d11_preflight_no_candidate','d11_preflight_scope_refused','d11_preflight_budget_exhausted','d11_preflight_observation_refused','d11_preflight_reconciliation_refused','d11_preflight_unavailable','d11_intake_written'].includes(p.code)
   &&((p.candidate_order_sn===null)===(p.code==='d11_preflight_no_candidate'));
- if(p.action===D11_ACTIONS[3])return exact(p,[...base,'observation_id'])&&id(p.observation_id);
- if(p.action===D11_ACTIONS[4])return exact(p,[...base,'observation_id','projection'])&&id(p.observation_id)&&object(p.projection);
+ if(p.action===D11_ACTIONS[3]||p.action===D11_ACTIONS[9])return exact(p,[...base,'observation_id'])&&id(p.observation_id);
+ if(p.action===D11_ACTIONS[4]||p.action===D11_ACTIONS[10])return exact(p,[...base,'observation_id','projection'])&&id(p.observation_id)&&object(p.projection);
  if(!positive(p.shop_id)||!text(p.order_sn,SN))return false;
  if(p.action===D11_ACTIONS[1])return exact(p,[...base,'shop_id','order_sn','payload_hash','payload','official_request_id','request_started_at','response_received_at'])
   &&text(p.payload_hash,HASH)&&object(p.payload)&&text(p.official_request_id,/^[A-Za-z0-9_.:-]{1,160}$/)
@@ -107,12 +112,35 @@ export async function executeD11BridgeAction(core,p,{enabled=false,now=Date.now,
      leaseStartedAt:v.updated_at,expiresAt:new Date(expires).toISOString(),
      workBudgetMs:profile.work_budget_ms,maxActionsPerCycle:profile.max_actions_per_cycle,pageSize:profile.page_size}};
   }
-  if(p.action===D11_ACTIONS[3]||p.action===D11_ACTIONS[4]){
+  if(p.action===D11_ACTIONS[10]){
+   if(p.projection.channel_account_id!==scope.accountId||p.projection.order_number!==v.candidate_order_sn)return blocked('d11_candidate_refused');
+   const r=await core.rpc('commit_shopee_d11_intake',{p_account:scope.accountId,p_lease:scope.leaseId,p_revision:scope.revision,
+    p_observation:p.observation_id,p_projection:p.projection});
+   if(r.error)return unavailable();
+   if(r.data?.status!=='intake_written')return blocked('d11_intake_refused');
+   if(!id(r.data.order_id)||!id(r.data.separation_id)||r.data.observation_id!==p.observation_id)return unavailable();
+   return {status:200,body:{status:'intake_written',channel_account_id:scope.accountId,order_number:v.candidate_order_sn,
+    order_id:r.data.order_id,separation_id:r.data.separation_id,observation_id:p.observation_id}};
+  }
+  if(p.action===D11_ACTIONS[3]||p.action===D11_ACTIONS[4]||p.action===D11_ACTIONS[9]){
    const reader=await prepareReconciliation(core,{now,readPolicy,checkLease})({...scope,expectedObservationId:p.observation_id});
    if(reader?.ok!==true||reader.orderSn!==v.candidate_order_sn||reader.shopId!==profile.shop
     ||reader.observationId!==p.observation_id||!id(reader.rawId))return blocked('d11_reconciliation_refused');
    const b=await reader.readExistingBatch({channel_account_id:scope.accountId,order_sn:v.candidate_order_sn,limit:1});
    if(b?.ok!==true)return blocked('d11_reconciliation_refused');
+   if(p.action===D11_ACTIONS[9]){
+    const found=await core.from('orders').select('id,channel_account_id,channel,order_number,sale_origin,deleted_at,status,operational_status')
+     .eq('channel_account_id',scope.accountId).eq('channel','shopee').eq('order_number',v.candidate_order_sn).limit(2);
+    if(found.error||!Array.isArray(found.data)||found.data.length>1)return blocked('d11_intake_identity_refused');
+    const o=found.data[0];
+    if(o&&(!id(o.id)||o.channel_account_id!==scope.accountId||o.channel!=='shopee'||o.order_number!==v.candidate_order_sn
+     ||o.sale_origin!=='shopee_open_platform'||o.deleted_at!==null||!['todo','preparing'].includes(o.operational_status)
+     ||typeof o.status!=='string'||['cancelado','finalizado'].includes(o.status)))return blocked('d11_intake_identity_refused');
+    if(!(await checkLease(core,{...scope,action}))?.ok)return blocked('d11_lease_refused');
+    return {status:200,body:{status:'intake_batch',canonical_state:o?'existing':'absent',
+     observation_id:reader.observationId,raw_id:reader.rawId,channel_account_id:scope.accountId,
+     order_sn:v.candidate_order_sn,batch:b.payload}};
+   }
    if(p.action===D11_ACTIONS[3])return {status:200,body:{status:'reconciliation_batch',observation_id:reader.observationId,
     raw_id:reader.rawId,channel_account_id:scope.accountId,order_sn:v.candidate_order_sn,batch:b.payload}};
    const proof=await reader.verifyCanonicalOrder(p.projection);
