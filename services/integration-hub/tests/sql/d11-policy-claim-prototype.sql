@@ -22,11 +22,11 @@ INSERT INTO public.shopee_oauth_connections(channel_account_id,shop_id,partner_i
 ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',456,2047685,'live','NORMAL',clock_timestamp()+interval '1 day');
 INSERT INTO public.shopee_cycle_policy_revisions
 (channel_account_id,revision,environment,shop_id,partner_id,history_cutoff,enabled,paused,capabilities,
- authorized_by,authorized_at,expires_at,evidence_ref,fiscal_mode,shipping_mode,shipping_evidence_ref,document_type)
+ authorized_by,authorized_at,expires_at,evidence_ref,fiscal_mode,shipping_mode,shipping_evidence_ref,document_type,max_actions_per_cycle)
 SELECT ca.id,1,'live',oc.shop_id,2047685,floor(extract(epoch FROM clock_timestamp()))::bigint-3600,
  true,false,'{"discover":true,"intake":true,"ship":true,"label":true,"refresh":false}'::jsonb,
  'cccccccc-cccc-4ccc-8ccc-cccccccccccc',clock_timestamp()-interval '1 minute',clock_timestamp()+interval '4 minutes',
- 'fixture/proof','cpf_no_invoice_step','simple_dropoff','fixture/logistics','NORMAL_AIR_WAYBILL'
+ 'fixture/proof','cpf_no_invoice_step','simple_dropoff','fixture/logistics','NORMAL_AIR_WAYBILL',CASE WHEN oc.shop_id=123 THEN 2 ELSE 1 END
 FROM public.channel_accounts ca JOIN public.shopee_oauth_connections oc ON oc.channel_account_id=ca.id
 WHERE ca.id IN ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
 INSERT INTO public.shopee_cycle_orders(channel_account_id,order_sn) VALUES
@@ -82,7 +82,16 @@ BEGIN
  x:=public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG1',repeat('a',64),obs);
  ASSERT x->>'status'='claimed' AND (x->>'fresh')::boolean; attempt:=(x->>'attempt_id')::uuid;
  ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG1',repeat('a',64),obs)->>'status'='already_claimed';
+ ASSERT EXISTS(SELECT 1 FROM public.shopee_shipping_arrangement_attempts WHERE id=attempt
+   AND d11_observation_id=obs AND d11_lease_id=l AND d11_policy_revision=1);
+ BEGIN
+   UPDATE public.shopee_shipping_arrangement_attempts SET d11_observation_id=old_obs WHERE id=attempt;
+   RAISE EXCEPTION 'binding mutation unexpectedly accepted';
+ EXCEPTION WHEN OTHERS THEN
+   IF SQLERRM<>'d11_attempt_binding_immutable' THEN RAISE; END IF;
+ END;
  ASSERT public.resolve_shopee_shipping_arrangement(attempt,repeat('a',64),'uncertain')->>'state'='uncertain';
+ ASSERT EXISTS(SELECT 1 FROM public.shopee_shipping_arrangement_attempts WHERE id=attempt AND d11_observation_id=obs AND state='uncertain');
  ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG1',repeat('a',64),obs)->>'status'='uncertain_requires_reconciliation';
  ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG1',repeat('c',64),obs)->>'status'='claim_fingerprint_mismatch';
  ASSERT (SELECT count(*) FROM public.shopee_shipping_arrangement_attempts WHERE channel_account_id=a)=1;
@@ -120,8 +129,50 @@ BEGIN
  ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG1',repeat('a',64),obs)->>'status'='policy_external_state_refused';
  x:=public.claim_shopee_cycle_effect(a,l,1,'label',123,'D11SYNTHETIC1','PKG1',repeat('b',64),obs);
  ASSERT x->>'status'='claimed' AND (x->>'fresh')::boolean;
+ ASSERT EXISTS(SELECT 1 FROM public.shopee_shipping_document_attempts WHERE id=(x->>'attempt_id')::uuid
+  AND d11_observation_id=obs AND d11_lease_id=l AND d11_policy_revision=1);
  ASSERT public.claim_shopee_cycle_effect(a,l,1,'label',123,'D11SYNTHETIC1','PKG1',repeat('b',64),obs)->>'status'='already_claimed';
 END $$;
+RESET ROLE;
+
+-- Account B has an independent one-effect quota, despite the same order SN.
+INSERT INTO public.marketplace_raw_snapshots(channel_account_id,source,environment,external_entity_type,endpoint,external_entity_id,payload,payload_hash,observed_at)
+SELECT 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',source,environment,external_entity_type,endpoint,external_entity_id,payload,payload_hash,observed_at
+ FROM public.marketplace_raw_snapshots WHERE channel_account_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' AND payload_hash=repeat('a',64);
+SET LOCAL ROLE service_role;
+DO $quota$
+DECLARE b uuid:='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'; l uuid; obs uuid; x jsonb;
+BEGIN
+ SELECT lease_id INTO l FROM public.shopee_cycle_state WHERE channel_account_id=b;
+ obs:=public.d11_fixture_observe(b,'fixture_quota_b1');
+ x:=public.claim_shopee_cycle_effect(b,l,1,'ship',456,'D11SYNTHETIC1','PKG1',repeat('a',64),obs);
+ ASSERT x->>'status'='claimed';
+ ASSERT public.resolve_shopee_shipping_arrangement((x->>'attempt_id')::uuid,repeat('a',64),'uncertain')->>'state'='uncertain';
+ ASSERT public.claim_shopee_cycle_effect(b,l,1,'ship',456,'D11SYNTHETIC1','PKG1',repeat('a',64),obs)->>'status'='uncertain_requires_reconciliation';
+END $quota$;
+RESET ROLE;
+INSERT INTO public.marketplace_raw_snapshots(channel_account_id,source,environment,external_entity_type,endpoint,external_entity_id,payload,payload_hash,observed_at)
+SELECT 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',source,environment,external_entity_type,endpoint,external_entity_id,payload,payload_hash,clock_timestamp()
+ FROM public.marketplace_raw_snapshots WHERE channel_account_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' AND payload_hash=repeat('c',64);
+SET LOCAL ROLE service_role;
+DO $quota$
+DECLARE b uuid:='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'; l uuid; obs uuid;
+BEGIN
+ SELECT lease_id INTO l FROM public.shopee_cycle_state WHERE channel_account_id=b;
+ obs:=public.d11_fixture_observe(b,'fixture_quota_b2');
+ ASSERT public.claim_shopee_cycle_effect(b,l,1,'label',456,'D11SYNTHETIC1','PKG1',repeat('b',64),obs)->>'status'='policy_effect_quota_exhausted';
+ ASSERT (SELECT count(*) FROM public.shopee_shipping_arrangement_attempts WHERE channel_account_id=b AND d11_lease_id=l)=1;
+ ASSERT NOT EXISTS(SELECT 1 FROM public.shopee_shipping_document_attempts WHERE channel_account_id=b);
+ -- A different lease cannot reset the durable shipment attempt, but may
+ -- admit the independently observed label within its own effect quota.
+ ASSERT public.finish_shopee_cycle(b,l,NULL,'D11SYNTHETIC1','pending','fixture_quota')->>'status'='finished';
+ l:=(public.acquire_shopee_cycle(b)->>'lease_id')::uuid;
+ ASSERT l IS NOT NULL;
+ obs:=public.d11_fixture_observe(b,'fixture_quota_b3');
+ ASSERT public.claim_shopee_cycle_effect(b,l,1,'label',456,'D11SYNTHETIC1','PKG1',repeat('b',64),obs)->>'status'='claimed';
+ ASSERT (SELECT count(*) FROM public.shopee_shipping_arrangement_attempts WHERE channel_account_id=b)=1;
+ ASSERT (SELECT count(*) FROM public.shopee_shipping_document_attempts WHERE channel_account_id=b AND d11_lease_id=l)=1;
+END $quota$;
 RESET ROLE;
 
 -- Synthetic owner fixture simulates the future authenticated append-only pause.
