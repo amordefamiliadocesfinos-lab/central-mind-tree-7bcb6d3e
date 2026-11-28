@@ -12,7 +12,7 @@ export function createD11RecurringPreflight({enabled=false,now=Date.now,call,
  adapters=createD11BridgeAdapters({enabled,call}),
  observe=createD11BridgeObservation({enabled,call,now}),
  intakeFactory=createShopeeControlledAutoIntake}={}){
- return async function preflight({accountId,leaseId,revision}={}){
+ return async function preflight({accountId,leaseId,revision,deadline:outerDeadline=Infinity,expectedOrderSn=null}={}){
   if(enabled!==true)return fail('d11_preflight_disabled');
   if(!id(accountId)||legacy.has(accountId.toLowerCase())||!id(leaseId)||!cap(revision,2147483647))
    return fail('d11_preflight_scope_invalid');
@@ -22,9 +22,10 @@ export function createD11RecurringPreflight({enabled=false,now=Date.now,call,
    const s=await adapters.readScope(scope);
    if(s?.ok!==true||s.accountId!==accountId||s.leaseId!==leaseId||s.revision!==revision
     ||s.partnerId!==2047685||!Number.isSafeInteger(s.shopId)||s.shopId<1||typeof s.orderSn!=='string'||!SN.test(s.orderSn)
+    ||(expectedOrderSn!==null&&s.orderSn!==expectedOrderSn)
     ||!cap(s.workBudgetMs,48000)||!cap(s.maxActionsPerCycle,3)||!cap(s.pageSize,5))
     return fail('d11_preflight_scope_refused');
-   const deadline=Math.min(started+s.workBudgetMs,Date.parse(s.expiresAt)-1000);
+   const deadline=Math.min(outerDeadline,started+s.workBudgetMs,Date.parse(s.expiresAt)-1000);
    const within=()=>Number.isFinite(deadline)&&now()>=started&&now()<deadline;
    if(!within())return fail('d11_preflight_budget_exhausted');
    // One selected candidate, at most one observation. No loop or implicit retry.
