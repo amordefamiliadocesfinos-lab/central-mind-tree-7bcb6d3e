@@ -50,6 +50,8 @@ on:
       - "scripts/nucleo-ux-lh-human-language.test.cjs"
       - "src/lib/nucleo/documentedJourneysV1.ts"
       - "scripts/nucleo-si01-documented-journeys.test.cjs"
+      - "src/lib/nucleo/executiveSupervisionV1.ts"
+      - "scripts/nucleo-si05-executive-supervision.test.cjs"
       - "src/lib/nucleo/ac01DocumentGovernance.ts"
       - "src/lib/nucleo/ac02RegistryContract.ts"
       - "supabase/functions/_shared/nucleo/ac02-registry-contract.ts"
@@ -265,6 +267,8 @@ jobs:
         run: node scripts/nucleo-ux-lh-human-language.test.cjs
       - name: SI01 documented journeys and authorized scope
         run: node scripts/nucleo-si01-documented-journeys.test.cjs
+      - name: SI05 executive supervision presentation
+        run: node scripts/nucleo-si05-executive-supervision.test.cjs
       - name: Verify Ficha Viva to AC01 contextual workflow
         run: node scripts/nucleo-fm-ac01-navigation.test.cjs
       - name: Verify AC01 to FM source-reconciliation contract

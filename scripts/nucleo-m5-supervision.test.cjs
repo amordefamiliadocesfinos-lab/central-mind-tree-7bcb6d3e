@@ -570,7 +570,9 @@ console.log("Núcleo V1.3 AC-01: ficha NUC acessível para piloto sem duplicar m
 // D3/D4: atalhos reutilizam ficha M3, guarda de edição e leitura M4 sob demanda.
 const m5Navigation=fs.readFileSync('src/components/nucleo/NucleoSupervisionPanel.tsx','utf8');
 const m3Navigation=fs.readFileSync('src/components/nucleo/NucleoDevelopmentCenter.tsx','utf8');
-assert.match(m5Navigation,/if\(front\)onOpenEvidence\(front.id\)/);
+assert.match(m5Navigation,/const front=findExecutiveWorkstream\(finding.workstreamCode,latestFronts\)/);
+assert.match(m5Navigation,/onOpenEvidence && finding.evidenceIds.length>0 && front &&/);
+assert.match(m5Navigation,/onClick=\{\(\)=>onOpenEvidence\(front.id\)\}/);
 assert.match(m5Navigation,/link.depends_on_id===target.id/);
 assert.match(m5Navigation,/onOpenWorkstream\(target.id\)/);
 const evidenceJump=m3Navigation.slice(m3Navigation.indexOf('onOpenEvidence={id=>{'),m3Navigation.indexOf('onOpenWorkstream={id=>{',m3Navigation.indexOf('onOpenEvidence={id=>{')));

@@ -1,4 +1,6 @@
-import { humanWorkName } from "@/lib/nucleo/humanLanguageV1";
+import { humanWorkName, humanNucleusState, originalWorkReference } from "@/lib/nucleo/humanLanguageV1";
+import { executivePriorityLabel, findExecutiveWorkstream, orderExecutiveFindings, summarizeExecutiveFindings } from "@/lib/nucleo/executiveSupervisionV1";
+import { explicitNextActionExcerpt } from "@/lib/nucleo/managerActionV13";
 import { documentedJourneys } from "@/lib/nucleo/documentedJourneysV1";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -172,8 +174,9 @@ export default function NucleoSupervisionPanel({
   }
   const scopedCodes = new Set(latestFronts.filter(item=>scopedIds.has(item.id)).map(item=>item.code));
   const findingsShown = snapshot
-    ? (focusModuleId ? snapshot.findings.filter(finding=>scopedCodes.has(finding.workstreamCode)) : snapshot.findings)
+    ? orderExecutiveFindings(focusModuleId ? snapshot.findings.filter(finding=>scopedCodes.has(finding.workstreamCode)) : snapshot.findings,latestFronts)
     : [];
+  const executiveSummary=summarizeExecutiveFindings(findingsShown);
   const focusedFronts = focusedModule
     ? latestFronts.filter(item=>scopedIds.has(item.id)&&item.kind!=="modulo").length
     : 0;
@@ -231,33 +234,45 @@ export default function NucleoSupervisionPanel({
             <p className="text-xs text-muted-foreground">Os detalhes da leitura continuam globais. Este foco filtra somente a lista de alertas, não a autorização de leitura.</p>
           </section>}
           <h4 className="text-base font-semibold">O que pede atenção</h4>
-          <p className="text-sm text-muted-foreground">Alertas do recorte consultado; nenhuma sugestão altera o sistema.</p>
+          <p className="text-sm text-muted-foreground">Alertas do recorte consultado; nenhuma sugestão altera o sistema. Primeiro os alertas de atenção, depois os informativos, pela prioridade já registrada.</p>
+          {findingsShown.length>0&&<div className="grid grid-cols-1 gap-2 sm:grid-cols-3" aria-label="Resumo dos alertas deste recorte">
+            <div className="rounded-lg border p-2"><p className="text-xs text-muted-foreground">Pedem atenção</p><p className="text-lg font-semibold">{executiveSummary.attention}</p></div>
+            <div className="rounded-lg border p-2"><p className="text-xs text-muted-foreground">Informativos</p><p className="text-lg font-semibold">{executiveSummary.information}</p></div>
+            <div className="rounded-lg border p-2"><p className="text-xs text-muted-foreground">Trabalhos com alertas</p><p className="text-lg font-semibold">{executiveSummary.workstreams}</p></div>
+          </div>}
           {findingsShown.length === 0 && <p className="text-xs text-muted-foreground">
             {focusModuleId
               ? "Nenhum alerta retornado para este módulo pelas regras atuais, nesta leitura completa. Isso não comprova conclusão."
               : "Nenhum alerta identificado pelas regras iniciais. Isso não comprova que as frentes estejam concluídas."}
           </p>}
           <div className="space-y-2">
-            {findingsShown.map(finding => (
+            {findingsShown.map(finding => {
+              const front=findExecutiveWorkstream(finding.workstreamCode,latestFronts);
+              const action=front?.next_action.trim()||"";
+              const excerpt=explicitNextActionExcerpt(action);
+              return (
               <div className="rounded-md border p-3 space-y-1" key={finding.id}>
                 <p className="text-sm font-semibold flex items-center gap-2">
                   <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
-                  {finding.workstreamCode} — {finding.title}
+                  {humanWorkName(finding.workstreamCode,finding.workstreamTitle)} — {finding.title}
                 </p>
+                <p className="text-xs font-medium">{finding.severity==="atencao"?"Pede atenção":"Informativo"}{front?` · Prioridade registrada: ${executivePriorityLabel(front.priority)} · ${humanNucleusState(front.status)}`:" · Trabalho não identificado de forma inequívoca"}</p>
+                {front&&<p className="text-xs text-muted-foreground break-words">Responsável declarado: {front.specialist.trim()||"Não informado"}</p>}
                 <p className="text-sm leading-relaxed text-muted-foreground">{finding.explanation}</p>
-                <p className="text-sm leading-relaxed"><span className="font-medium">Sugestão:</span> {finding.suggestedAction}</p>
-                {onOpenWorkstream&&latestFronts.some(front=>front.code===finding.workstreamCode)&&
+                <p className="text-sm leading-relaxed"><span className="font-medium">Sugestão de acompanhamento:</span> {finding.suggestedAction}</p>
+                {front&&<details className="rounded-md border p-2 space-y-1">
+                  <summary className="cursor-pointer text-sm font-medium">Próxima ação registrada e detalhes</summary>
+                  {excerpt&&excerpt.length<=480&&<p className="text-sm break-words">{excerpt}</p>}
+                  <p className="text-xs text-muted-foreground">Registro completo, sem interpretar histórico como autorização:</p>
+                  <p className="text-sm whitespace-pre-wrap break-words">{front.next_action.trim()?front.next_action:"Nenhuma próxima ação registrada."}</p>
+                  <p className="text-xs text-muted-foreground break-words">Identificação técnica: {originalWorkReference(front.code,front.title)}</p>
+                </details>}
+                {onOpenWorkstream&&front&&
                   <Button type="button" variant="outline" size="sm" className="min-h-9"
-                    onClick={()=>{
-                      const front=latestFronts.find(item=>item.code===finding.workstreamCode);
-                      if(front)onOpenWorkstream(front.id);
-                    }}>Abrir ficha do trabalho</Button>}
-                {onOpenEvidence && finding.evidenceIds.length>0 && latestFronts.some(front=>front.code===finding.workstreamCode) &&
-                  <Button type="button" variant="outline" size="sm" onClick={()=>{
-                    const front=latestFronts.find(item=>item.code===finding.workstreamCode);
-                    if(front)onOpenEvidence(front.id);
-                  }}>Consultar evidências do trabalho</Button>}
-                {finding.kind==="dependencia_bloqueante" && onOpenWorkstream && latestFronts.filter(target=>target.status==="bloqueado" && latestDependencies.some(link=>link.depends_on_id===target.id && latestFronts.some(origin=>origin.id===link.workstream_id && origin.code===finding.workstreamCode))).map(target=>(
+                    onClick={()=>onOpenWorkstream(front.id)}>Abrir ficha do trabalho</Button>}
+                {onOpenEvidence && finding.evidenceIds.length>0 && front &&
+                  <Button type="button" variant="outline" size="sm" onClick={()=>onOpenEvidence(front.id)}>Consultar evidências do trabalho</Button>}
+                {finding.kind==="dependencia_bloqueante" && onOpenWorkstream && front && latestFronts.filter(target=>target.id!==front.id && target.status==="bloqueado" && latestDependencies.some(link=>link.depends_on_id===target.id && link.workstream_id===front.id)).map(target=>(
                   <Button key={target.id} type="button" variant="outline" size="sm" onClick={()=>onOpenWorkstream(target.id)}>Abrir trabalho relacionado: {humanWorkName(target.code,target.title)}</Button>
                 ))}
                 {finding.evidenceIds.length > 0 && (
@@ -278,7 +293,7 @@ export default function NucleoSupervisionPanel({
                   </details>
                 )}
               </div>
-            ))}
+            );})}
           </div>
           <details className="rounded-xl border p-3">
             <summary className="cursor-pointer text-sm font-semibold">Conexões entre áreas</summary>
