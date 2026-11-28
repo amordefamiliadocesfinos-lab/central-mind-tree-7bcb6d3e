@@ -15,6 +15,7 @@ import {
   InvoicesManager,
   StatementImporter,
 } from '@/components/financial';
+import { GlobalFinancialSearchDialog } from '@/components/financial/GlobalFinancialSearchDialog';
 import { MobileFinancialView } from '@/components/financial/MobileFinancialView';
 import { useFinancial, EntryStatus } from '@/hooks/useFinancial';
 import { Users, DollarSign, FileText, Upload } from 'lucide-react';
@@ -30,6 +31,7 @@ import { MarketplaceSettlementDialog } from '@/components/financial/MarketplaceS
 import { useIsMobile } from '@/hooks/use-mobile';
 export default function Financeiro() {
   const isMobile = useIsMobile();
+  const [globalSearchOpen,setGlobalSearchOpen]=useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [quickAction, setQuickAction] = useState<'receber' | 'pagar' | 'contas' | null>(null);
   const openQuickAction = (target: 'receber' | 'pagar' | 'contas') => {
@@ -106,6 +108,8 @@ export default function Financeiro() {
       <MobileHeader title="Financeiro" showBack />
 
       <div className="container mx-auto p-4 space-y-4">
+        <Button variant="outline" className="w-full justify-start" onClick={()=>setGlobalSearchOpen(true)}>Pesquisar lançamentos em todos os períodos</Button>
+        {globalSearchOpen && <GlobalFinancialSearchDialog open={globalSearchOpen} onOpenChange={setGlobalSearchOpen}/>}
         <section aria-label="Operações rápidas" className="grid grid-cols-2 lg:grid-cols-4 gap-2">
           <Button variant="outline" className="h-auto py-3 justify-start gap-2" onClick={() => openQuickAction('receber')}><TrendingUp className="h-5 w-5 text-emerald-600" /> Nova conta a receber</Button>
           <Button variant="outline" className="h-auto py-3 justify-start gap-2" onClick={() => openQuickAction('pagar')}><TrendingDown className="h-5 w-5 text-red-500" /> Nova conta a pagar</Button>

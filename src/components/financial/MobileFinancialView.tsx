@@ -23,6 +23,7 @@ import { cn, formatCurrency } from '@/lib/utils';
 import {
   FinancialEntry, EntryStatus, getEntryStatus, FinancialCategory, FinancialAccount,
 } from '@/hooks/useFinancial';
+import { GlobalFinancialSearchDialog } from './GlobalFinancialSearchDialog';
 import { PaymentDialog } from './PaymentDialog';
 import { MarketplaceSettlementDialog } from './MarketplaceSettlementDialog';
 import {
@@ -68,6 +69,7 @@ export function MobileFinancialView({
   onPeriodChange, onCreateEntry, onUpdateEntry, onDeleteEntry, onRegisterPayment,
   onSaveAccount, onSaveCategory, onRefreshEntries,
 }: Props) {
+  const [globalSearchOpen,setGlobalSearchOpen]=useState(false);
   const [section, setSection] = useState<Section>('resumo');
   const [subSection, setSubSection] = useState<SubSection | null>(null);
   const [quickTransfer, setQuickTransfer] = useState(false);
@@ -277,6 +279,8 @@ export function MobileFinancialView({
         </div>
       </div>
 
+      <div className="px-3 pt-3"><Button variant="outline" className="w-full justify-start gap-2" onClick={()=>setGlobalSearchOpen(true)}><Search className="h-4 w-4"/>Pesquisar todos os períodos</Button></div>
+      {globalSearchOpen && <GlobalFinancialSearchDialog open={globalSearchOpen} onOpenChange={setGlobalSearchOpen}/>}
       {/* Section content */}
       {section === 'resumo' && (
         <>
