@@ -707,7 +707,7 @@ export function HealthWorkoutInteractiveTimerF19({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="sau-execution-stack space-y-3" data-sau-phase={sessionPaused?"paused":activeRest?"rest":activeWork?"work":"ready"}>
       <div data-cch-session-bar data-sau-paused={sessionPaused} className="sau-session-bar sticky top-[calc(49px+env(safe-area-inset-top))] z-20 rounded-xl border bg-background/95 px-2 py-2 shadow-sm backdrop-blur">
         <div className="flex items-center gap-1.5 sm:gap-3">
           <div className="min-w-0 flex-1">
@@ -747,7 +747,7 @@ export function HealthWorkoutInteractiveTimerF19({
 
         <div className="flex items-center justify-between gap-1">
           {onToggleFocus?<Button type="button" variant="ghost" size="icon" className="h-11 w-11 shrink-0" aria-label={focusMode?"Sair do modo focado":"Ativar modo focado"} onClick={onToggleFocus}>{focusMode?<Minimize2 className="h-4 w-4"/>:<Maximize2 className="h-4 w-4"/>}</Button>:null}
-          <p role="status" className="min-w-0 flex-1 text-xs text-muted-foreground">{feedback}</p>
+          <p role="status" className="sau-session-feedback min-w-0 flex-1 text-xs text-muted-foreground">{feedback}</p>
           <Button
             type="button"
             variant="ghost"
@@ -927,11 +927,9 @@ export function HealthWorkoutInteractiveTimerF19({
         </Card>
       ) : viewedExercise ? (
         <Card
-          className={
-            viewingActiveExercise ? "ring-1 ring-primary/25" : undefined
-          }
+          className={`sau-current-exercise ${viewingActiveExercise ? "ring-1 ring-primary/25" : ""}`}
         >
-          <CardHeader className="px-3 pt-3 pb-2">
+          <CardHeader className="sau-exercise-heading px-3 pt-3 pb-2">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-xs font-medium text-muted-foreground">
@@ -968,7 +966,7 @@ export function HealthWorkoutInteractiveTimerF19({
             </div>
           </CardHeader>
 
-          <CardContent className="space-y-3 px-3 pb-3">
+          <CardContent className="sau-exercise-content space-y-3 px-3 pb-3">
             <aside data-testid="cch-history-reference" aria-label="Referência histórica, não é o resultado atual"
               className="rounded-lg bg-muted/25 px-3 py-2 text-xs text-muted-foreground">
               <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
@@ -1169,8 +1167,8 @@ export function HealthWorkoutInteractiveTimerF19({
                       </p>
                     </div>
 
-                    <div className="rounded-xl border bg-muted/20 p-3">
-                      <div className="flex items-start justify-between gap-3">
+                    <div className="sau-set-result rounded-xl border bg-muted/20 p-3">
+                      <div className="sau-result-heading flex items-start justify-between gap-3">
                         <div>
                           <p className="text-xs uppercase tracking-wide text-muted-foreground">
                             Resultado da série
@@ -1193,7 +1191,7 @@ export function HealthWorkoutInteractiveTimerF19({
                         </div>
                       </div>
 
-                      <div className="mt-2 grid grid-cols-2 gap-1.5 min-[400px]:grid-cols-4 sm:gap-3">
+                      <div className="sau-result-fields mt-2 grid grid-cols-2 gap-1.5 min-[400px]:grid-cols-4 sm:gap-3">
                         <div className="min-w-0 space-y-1">
                           <Label className="text-xs">Carga</Label>
                           <Input
@@ -1266,7 +1264,7 @@ export function HealthWorkoutInteractiveTimerF19({
                       </div>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="sau-save-result space-y-2">
                       <Button
                         className="min-h-12 w-full"
                         variant={resultSaved ? "secondary" : "default"}
@@ -1292,7 +1290,7 @@ export function HealthWorkoutInteractiveTimerF19({
                         {resultSaved ? "Resultado salvo" : "Salvar resultado"}
                       </Button>
 
-                      <p className="text-xs text-muted-foreground">
+                      <p className="sau-result-explanation text-xs text-muted-foreground">
                         {resultSaved
                           ? "Resultado salvo. Continue quando estiver pronto."
                           : "Salve para liberar o próximo passo."}
