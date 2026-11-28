@@ -72,6 +72,8 @@ export function proposeCrmConversationProfileFields(
   const unverified = new Map<'email' | 'zip_code', Array<{ value: string; id: string; date: string; excerpt: string }>>();
   // Valores posteriormente negados continuam inválidos mesmo se apareceram antes como rotulados.
   const deniedValues = new Map<'email' | 'zip_code', Set<string>>();
+  // Retratações anafóricas sem valor literal bloqueiam a sugestão anterior do campo.
+  const fieldLevelDenials = new Map<'email' | 'zip_code' | 'phone', string>();
   // Only direct inbound customer text. Ignore instructions and quoted/agent/AI content.
   for (const message of messages) {
     if (message.sender !== 'customer' || !message.id || !message.created_at || !message.content) continue;
@@ -99,6 +101,16 @@ export function proposeCrmConversationProfileFields(
       // como pista um dado que a pessoa acabou de negar.
       const ownershipDenied = /(?:\bn[aã]o\s+(?:é|eh|s[aã]o)\s+(?:(?:o|a|os|as)\s+)?(?:meu|minha|meus|minhas)\b|\b(?:é|eh|pertence)\s+(?:d[ao]|de|ao|à)\s+(?:(?:minha|meu|um|uma|outr[ao])\s+)?(?:m[aã]e|pai|esposa|marido|filh[ao]|amig[ao]|colega|cliente|terceir[ao]|destinat[aá]ri[ao])\b|\b(?:d[ao]|de)\s+(?:minha|meu)\s+(?:m[aã]e|pai|esposa|marido|filh[ao]|amig[ao]|colega)\b|\b(?:desconsiderar|n[aã]o\s+usar|valor\s+errado|dado\s+incorreto)\b)/i.test(line);
       if (ownershipDenied) {
+        // "Esse e-mail não é meu" não repete o valor: só é seguro bloquear
+        // a sugestão prévia; não inferir qual endereço a frase significa.
+        const referencedField: 'email' | 'zip_code' | 'phone' | null =
+          /\b(?:esse|este|aquele|o)\s+e-?mail\b/i.test(line) ? 'email'
+          : /\b(?:esse|este|aquele|o)\s+cep\b/i.test(line) ? 'zip_code'
+          : /\b(?:esse|este|aquele|o)\s+(?:telefone|celular)\b/i.test(line) ? 'phone' : null;
+        if (referencedField && !/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(line) && !/\b\d{5}-?\d{3}\b/.test(line)) {
+          const previous = fieldLevelDenials.get(referencedField);
+          if (!previous || message.created_at > previous) fieldLevelDenials.set(referencedField, message.created_at);
+        }
         for (const email of line.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? []) {
           const denied = deniedValues.get('email') ?? new Set<string>();
           denied.add(comparable('email', email));
@@ -160,7 +172,9 @@ export function proposeCrmConversationProfileFields(
     const oldValue = String(current[field] ?? '').trim();
     const deniedCandidate = (field === 'email' || field === 'zip_code')
       && entries.some(entry => deniedValues.get(field)?.has(comparable(field, entry.value)));
-    const state = differing || deniedCandidate ? 'ambiguous'
+    const deniedAfterLatest = (field === 'email' || field === 'zip_code' || field === 'phone')
+      && Boolean(fieldLevelDenials.get(field) && fieldLevelDenials.get(field)! >= latest.date);
+    const state = differing || deniedCandidate || deniedAfterLatest ? 'ambiguous'
       : !oldValue ? 'empty'
       : comparable(field, oldValue) === comparable(field, latest.value) ? 'same' : 'conflict';
     proposals.push({
@@ -181,6 +195,7 @@ export function proposeCrmConversationProfileFields(
       !deniedValues.get(field)?.has(comparable(field, entry.value)));
     if (!eligibleEntries?.length) continue;
     const ordered = [...eligibleEntries].sort((a, b) => a.date.localeCompare(b.date));
+    if (fieldLevelDenials.get(field) && fieldLevelDenials.get(field)! >= ordered[ordered.length - 1].date) continue;
     const latest = ordered[ordered.length - 1];
     proposals.push({
       field, value: latest.value, messageId: latest.id, createdAt: latest.date,
