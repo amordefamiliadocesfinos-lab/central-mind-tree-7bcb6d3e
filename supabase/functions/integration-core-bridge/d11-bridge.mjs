@@ -25,7 +25,7 @@ export function validateD11Payload(p){
   &&Object.entries(p.detail_hashes).every(([k,v])=>text(k,SN)&&text(v,HASH));
  if(p.action===D11_ACTIONS[6])return exact(p,[...base,'candidate_order_sn','code'])
   &&(p.candidate_order_sn===null||text(p.candidate_order_sn,SN))
-  &&['d11_preflight_verified_existing','d11_preflight_no_candidate','d11_preflight_scope_refused','d11_preflight_budget_exhausted','d11_preflight_observation_refused','d11_preflight_reconciliation_refused','d11_preflight_unavailable'].includes(p.code)
+  &&['d11_preflight_verified_existing','d11_preflight_no_candidate','d11_preflight_scope_refused','d11_preflight_budget_exhausted','d11_preflight_observation_refused','d11_preflight_reconciliation_refused','d11_preflight_unavailable','d11_intake_written'].includes(p.code)
   &&((p.candidate_order_sn===null)===(p.code==='d11_preflight_no_candidate'));
  if(p.action===D11_ACTIONS[3]||p.action===D11_ACTIONS[9])return exact(p,[...base,'observation_id'])&&id(p.observation_id);
  if(p.action===D11_ACTIONS[4]||p.action===D11_ACTIONS[10])return exact(p,[...base,'observation_id','projection'])&&id(p.observation_id)&&object(p.projection);
