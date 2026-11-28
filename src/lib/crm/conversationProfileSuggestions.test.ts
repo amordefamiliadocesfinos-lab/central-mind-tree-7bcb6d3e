@@ -248,3 +248,17 @@ test('B9 unverified fields are not eligible for the canonical confirmation butto
   assert.match(panel, /unverified: 'Texto livre: titularidade não comprovada/);
   assert.doesNotMatch(panel, /\.upsert\(|\.insert\(/);
 });
+
+test('B9 billing and delivery CEP never become a primary CEP hint', () => {
+  const result = proposeCrmConversationProfileFields([
+    msg('billing', 'customer', 'CEP de cobrança: 88220-000'),
+    msg('delivery', 'customer', 'CEP de entrega: 88300-000'),
+    msg('primary', 'customer', 'Pode ser no 88100-000'),
+  ], {});
+  const hints = result.filter(item => item.field === 'zip_code');
+  assert.equal(hints.length, 1);
+  assert.equal(hints[0].value, '88100-000');
+  assert.equal(hints[0].state, 'unverified');
+  const billing = result.find(item => item.field === 'billing_zip_code');
+  assert.equal(billing?.value, '88220-000');
+});
