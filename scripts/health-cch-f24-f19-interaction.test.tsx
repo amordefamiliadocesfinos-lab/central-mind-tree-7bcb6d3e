@@ -179,3 +179,15 @@ describe("F24 R07 — ready state and explicit completion boundary",()=>{
   cleanup();
  });
 });
+
+describe("SAU visual refinement — pause presentation",()=>{
+ it("marks viewed position without claiming completed exercises and keeps explicit resume",()=>{
+  render(<ExerciseHarness paused/>);
+  expect(screen.getByText("Treino pausado")).toBeTruthy();
+  expect(screen.getByLabelText("Posição 1 de 2").querySelectorAll('[data-position="current"]')).toHaveLength(1);
+  fireEvent.click(screen.getByLabelText("Próximo exercício"));
+  expect(screen.getByLabelText("Posição 2 de 2").querySelectorAll('[data-position="current"]')).toHaveLength(1);
+  expect(screen.getAllByRole("button",{name:"Retomar treino"})).toHaveLength(2);
+  cleanup();
+ });
+});
