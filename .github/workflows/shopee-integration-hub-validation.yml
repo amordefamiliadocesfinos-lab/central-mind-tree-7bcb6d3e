@@ -205,7 +205,7 @@ jobs:
           {
             echo '-- D11 generated candidate; not approved for hosted publication.'
             echo 'BEGIN;'
-            for file in d11-policy-storage-schema.sql d11-policy-lease-schema.sql d11-policy-acquire-candidate.sql d11-observation-candidate.sql d11-policy-claim-candidate.sql d11-policy-authoring-candidate.sql; do
+            for file in d11-policy-storage-schema.sql d11-policy-lease-schema.sql d11-policy-acquire-candidate.sql d11-preflight-lifecycle-candidate.sql d11-observation-candidate.sql d11-policy-claim-candidate.sql d11-policy-authoring-candidate.sql; do
               printf '\n-- source: %s\n' "$file"
               cat "$root/$file"
             done
