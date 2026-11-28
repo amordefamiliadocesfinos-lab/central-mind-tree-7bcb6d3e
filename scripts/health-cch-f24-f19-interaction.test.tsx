@@ -191,3 +191,23 @@ describe("SAU visual refinement — pause presentation",()=>{
   cleanup();
  });
 });
+
+describe("SAU compact execution",()=>{
+ it("keeps rest clock, editable result and next action available together",()=>{
+  const {container}=render(<ExerciseHarness initialCount={1}/>);
+  expect(container.querySelector('[data-sau-phase="rest"]')).toBeTruthy();
+  expect(screen.getByTestId("cch-rest-clock")).toBeTruthy();
+  expect(container.querySelector(".sau-result-fields")?.querySelectorAll("input")).toHaveLength(3);
+  expect(screen.getByRole("button",{name:"Iniciar próxima série"})).toBeTruthy();
+  expect(screen.getByText("Trocar exercício").closest("details")?.open).toBe(false);
+  cleanup();
+ });
+ it("keeps pause and ready states distinct",()=>{
+  const view=render(<ExerciseHarness paused/>);
+  expect(view.container.querySelector('[data-sau-phase="paused"]')).toBeTruthy();
+  view.rerender(<ExerciseHarness ready initialCount={0}/>);
+  expect(view.container.querySelector('[data-sau-phase="ready"]')).toBeTruthy();
+  expect(screen.getByRole("button",{name:"Iniciar série",exact:true})).toBeTruthy();
+  cleanup();
+ });
+});
