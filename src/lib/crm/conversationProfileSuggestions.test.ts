@@ -491,3 +491,27 @@ test('B18 bounded messages still work but oversized history blocks all writes at
   assert.match(panel, /análise integral indisponível e preenchimento bloqueado/);
   assert.match(panel, /message\.content\?\.length \?\? 0/);
 });
+
+test('B19 literal phone denial after a labelled message blocks confirmation', () => {
+  const result = proposeCrmConversationProfileFields([
+    msg('original', 'customer', 'Meu telefone é (47) 99999-9999', '2026-11-27T12:00:00Z'),
+    msg('denied', 'customer', 'Telefone: 47999999999 não é meu', '2026-11-27T13:00:00Z'),
+  ], {});
+  assert.equal(result.find(item => item.field === 'phone')?.state, 'ambiguous');
+});
+
+test('B19 literal phone denial before a newer explicit declaration does not block it', () => {
+  const result = proposeCrmConversationProfileFields([
+    msg('denied', 'customer', 'Telefone: 47999999999 não é meu', '2026-11-27T11:00:00Z'),
+    msg('new', 'customer', 'Meu telefone é (47) 99999-9999', '2026-11-27T14:00:00Z'),
+  ], {});
+  assert.equal(result.find(item => item.field === 'phone')?.state, 'empty');
+});
+
+test('B19 denial for another phone does not invalidate the actual contact number', () => {
+  const result = proposeCrmConversationProfileFields([
+    msg('mine', 'customer', 'Meu telefone é (47) 99999-9999', '2026-11-27T11:00:00Z'),
+    msg('other', 'customer', 'Telefone: 47988888888 não é meu', '2026-11-27T14:00:00Z'),
+  ], {});
+  assert.equal(result.find(item => item.field === 'phone')?.state, 'empty');
+});
