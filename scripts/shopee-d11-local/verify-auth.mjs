@@ -127,6 +127,7 @@ assert.ok((await effect('claim_shopee_cycle_effect',fence,a.token,anon)).status>
 assert.equal((await effect('claim_shopee_cycle_effect',{...fence,p_observation_id:crypto.randomUUID()})).data.status,'policy_observation_refused');
 const claim=await effect('claim_shopee_cycle_effect',fence);
 assert.equal(claim.status,200);assert.equal(claim.data.status,'claimed');assert.equal(claim.data.fresh,true);
+assert.equal(sql("SELECT d11_observation_id||':'||d11_lease_id||':'||d11_policy_revision FROM public.shopee_shipping_arrangement_attempts WHERE id='"+claim.data.attempt_id+"'"),rec.data.observation_id+':'+lease.data.lease_id+':1');
 assert.equal((await effect('claim_shopee_cycle_effect',fence)).data.status,'already_claimed');
 assert.equal(sql('SELECT count(*) FROM public.shopee_shipping_arrangement_attempts'),'1');
 const pause={...payload,p_expected_revision:1,p_request:crypto.randomUUID(),p_operation:'pause',p_config:null,p_evidence:'fixture/pause'};
@@ -136,7 +137,7 @@ assert.equal((await effect('claim_shopee_cycle_effect',fence)).data.status,'poli
 assert.equal((await effect('commit_shopee_d11_intake',intake)).data.status,'intake_scope_refused');
 assert.equal(before(),'1');
 assert.equal(sql('SELECT count(*) FROM public.shopee_shipping_arrangement_attempts'),'1');
-console.log('PASS local consolidated observation/claim RPC: service-only, exact receipt, duplicate and pause denial');
+console.log('PASS local consolidated observation/claim RPC: service-only, exact receipt, durable attempt binding, duplicate and pause denial');
 sql(`UPDATE public.app_admin_capabilities SET active=false,revoked_at=now() WHERE auth_user_id='${a.id}' AND capability='shopee_manage_cycle_policy';`);
 assert.equal((await rpc(a.token,anon,{...payload,p_expected_revision:2,p_request:crypto.randomUUID()})).data.status,'author_refused');
 assert.equal(sql('SELECT count(*) FROM public.shopee_cycle_policy_revisions'),'2');

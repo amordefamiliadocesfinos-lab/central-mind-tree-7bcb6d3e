@@ -169,7 +169,7 @@ export async function executeD11BridgeAction(core,p,{enabled=false,now=Date.now,
    return {status:200,body:{status:'claimed',fresh:true,attempt_id:r.data.attempt_id}};
   const codes=['already_claimed','uncertain_requires_reconciliation','claim_fingerprint_mismatch','policy_observation_refused',
    'policy_lease_refused','policy_admission_refused','policy_candidate_refused','policy_canonical_order_refused',
-   'policy_history_or_package_refused','policy_external_state_refused','policy_prior_scope_requires_reconciliation'];
+   'policy_history_or_package_refused','policy_external_state_refused','policy_prior_scope_requires_reconciliation','policy_effect_quota_exhausted'];
   return blocked(codes.includes(r.data?.status)?r.data.status:'d11_claim_refused');
  }catch{return unavailable();}
 }
