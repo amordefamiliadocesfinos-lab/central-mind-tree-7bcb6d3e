@@ -7,7 +7,7 @@ const SN=/^[A-Za-z0-9]{8,100}$/;
 const HASH=/^[0-9a-f]{64}$/;
 const LEGACY=new Set(['8a8ad166-0317-4597-8be6-e43fb46b4d1b','b4027369-5abf-4ac1-ab24-862334fae892']);
 const scopeKeys=['channel_account_id','lease_id','revision'];
-export const D11_ACTIONS=Object.freeze(['shopee.d11.scope.read','shopee.d11.observation.record','shopee.d11.effect.claim','shopee.d11.reconcile.read','shopee.d11.reconcile.verify','shopee.d11.preflight.acquire','shopee.d11.preflight.finish']);
+export const D11_ACTIONS=Object.freeze(['shopee.d11.scope.read','shopee.d11.observation.record','shopee.d11.effect.claim','shopee.d11.reconcile.read','shopee.d11.reconcile.verify','shopee.d11.preflight.acquire','shopee.d11.preflight.finish','shopee.d11.discovery.scope','shopee.d11.discovery.finish']);
 const id=v=>typeof v==='string'&&UUID.test(v);
 const text=(v,re)=>typeof v==='string'&&re.test(v);
 const object=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
@@ -19,7 +19,10 @@ export function validateD11Payload(p){
  if(p.action===D11_ACTIONS[5])return exact(p,['action','channel_account_id']);
  if(!id(p.lease_id)||!positive(p.revision))return false;
  const base=['action',...scopeKeys];
- if(p.action===D11_ACTIONS[0])return exact(p,base);
+ if(p.action===D11_ACTIONS[0]||p.action===D11_ACTIONS[7])return exact(p,base);
+ if(p.action===D11_ACTIONS[8])return exact(p,[...base,'list_hash','detail_hashes'])&&text(p.list_hash,HASH)
+  &&object(p.detail_hashes)&&Object.keys(p.detail_hashes).length<=5
+  &&Object.entries(p.detail_hashes).every(([k,v])=>text(k,SN)&&text(v,HASH));
  if(p.action===D11_ACTIONS[6])return exact(p,[...base,'candidate_order_sn','code'])
   &&(p.candidate_order_sn===null||text(p.candidate_order_sn,SN))
   &&['d11_preflight_verified_existing','d11_preflight_no_candidate','d11_preflight_scope_refused','d11_preflight_budget_exhausted','d11_preflight_observation_refused','d11_preflight_reconciliation_refused','d11_preflight_unavailable'].includes(p.code)
@@ -39,6 +42,28 @@ const unavailable=()=>({status:503,body:{error:'d11_bridge_unavailable'}});
 export async function executeD11BridgeAction(core,p,{enabled=false,now=Date.now,readPolicy=readCyclePolicy,checkLease=checkCyclePolicyLease,prepareReconciliation=createProtectedReconciliationReader}={}){
  if(enabled!==true)return {status:503,body:{error:'d11_bridge_not_enabled'}};
  if(!validateD11Payload(p))return {status:400,body:{error:'invalid_request'}};
+ if(p.action===D11_ACTIONS[7]||p.action===D11_ACTIONS[8]){
+  try{
+   const read=p.action===D11_ACTIONS[7];
+   const args={p_account:p.channel_account_id,p_lease:p.lease_id,p_revision:p.revision};
+   const r=await core.rpc(read?'read_shopee_d11_discovery_scope':'finish_shopee_d11_discovery',read?args:
+    {...args,p_list_hash:p.list_hash,p_detail_hashes:p.detail_hashes});
+   if(r.error)return unavailable();
+   if(!r.data)return blocked('d11_discovery_scope_refused');
+   if(!read)return r.data.status==='finished'?{status:200,body:{status:'finished',listed:r.data.listed,eligible:r.data.eligible}}:blocked('d11_discovery_checkpoint_refused');
+   const v=r.data;
+   if(v.channel_account_id!==p.channel_account_id||v.lease_id!==p.lease_id||v.revision!==p.revision
+     ||!positive(v.shop_id)||v.partner_id!==2047685||!positive(v.history_cutoff)
+     ||!positive(v.page_size)||v.page_size>5||!positive(v.work_budget_ms)||v.work_budget_ms>48000
+     ||!positive(v.time_from)||!positive(v.time_to)||v.time_to<=v.time_from||v.time_to-v.time_from>604800
+     ||!(v.cursor===null||(typeof v.cursor==='string'&&v.cursor.length>0&&v.cursor.length<=2048))
+     ||!iso(v.expires_at)||!iso(v.lease_started_at))return unavailable();
+   return {status:200,body:{status:'discovery_scope',channel_account_id:v.channel_account_id,lease_id:v.lease_id,
+    revision:v.revision,shop_id:v.shop_id,partner_id:v.partner_id,history_cutoff:v.history_cutoff,
+    page_size:v.page_size,work_budget_ms:v.work_budget_ms,time_from:v.time_from,time_to:v.time_to,
+    cursor:v.cursor,candidate_order_sn:v.candidate_order_sn,lease_started_at:v.lease_started_at,expires_at:v.expires_at}};
+  }catch{return unavailable();}
+ }
  if(p.action===D11_ACTIONS[5]||p.action===D11_ACTIONS[6]){
   try{
    const acquire=p.action===D11_ACTIONS[5];
