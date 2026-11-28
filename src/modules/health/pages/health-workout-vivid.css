@@ -86,3 +86,196 @@
     transition-duration: .01ms !important;
   }
 }
+
+/* Compact focused viewport; natural overflow remains available for expanded
+   operations, unusual content, zoom and short screens. Never clip controls. */
+body:has(.sau-workout-vivid[data-cch-focus="true"]) {
+  background: #061422;
+}
+body:has(.sau-workout-vivid[data-cch-focus="true"]) [data-cch-health-shell] {
+  background: #061422;
+  padding: 0;
+  min-height: 100dvh;
+}
+body:has(.sau-workout-vivid[data-cch-focus="true"]) [data-cch-health-main] {
+  padding: 0;
+  max-width: 42rem;
+}
+.sau-workout-vivid[data-cch-focus="true"] {
+  border-radius: 0;
+  min-height: 100dvh;
+  padding: max(4px, env(safe-area-inset-top)) 6px max(4px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sau-workout-vivid[data-cch-focus="true"] > * + * {
+  margin-top: 0;
+}
+.sau-workout-vivid[data-cch-focus="true"] .sau-execution-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 0 auto;
+}
+.sau-workout-vivid[data-cch-focus="true"] .sau-execution-stack > * + * {
+  margin-top: 0;
+}
+@media (max-width: 639px) {
+  .sau-workout-vivid[data-cch-focus="true"] .sau-session-bar {
+    padding: 4px 6px;
+    border-radius: 10px;
+  }
+  .sau-workout-vivid[data-cch-focus="true"] .sau-session-bar > div:first-child {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto 44px;
+    gap: 4px;
+  }
+  .sau-workout-vivid[data-cch-focus="true"] .sau-session-bar > div:first-child p {
+    font-size: 12px;
+    line-height: 1.2;
+  }
+  .sau-workout-vivid[data-cch-focus="true"] .sau-session-clock {
+    padding: 5px;
+    font-size: clamp(13px, 3.5vw, 17px);
+  }
+  .sau-workout-vivid[data-cch-focus="true"] .sau-session-feedback {
+    font-size: 11px;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+  .sau-workout-vivid[data-cch-focus="true"] .sau-exercise-nav > div {
+    padding: 4px 6px;
+  }
+  .sau-workout-vivid[data-cch-focus="true"] .sau-exercise-nav [aria-label^="Posição"] {
+    margin-top: 3px;
+  }
+  .sau-workout-vivid[data-cch-focus="true"] .sau-exercise-nav .sau-exercise-position {
+    height: 4px;
+  }
+  .sau-workout-vivid[data-cch-focus="true"] .sau-current-exercise {
+    border-radius: 10px;
+  }
+  .sau-workout-vivid[data-cch-focus="true"] .sau-exercise-heading {
+    padding: 5px 6px 3px;
+    gap: 2px;
+  }
+  .sau-workout-vivid[data-cch-focus="true"] .sau-exercise-heading h3 {
+    font-size: clamp(16px, 4vw, 20px);
+    line-height: 1.15;
+    margin-top: 0;
+  }
+  .sau-workout-vivid[data-cch-focus="true"] .sau-exercise-heading p {
+    margin-top: 0;
+    line-height: 1.2;
+  }
+  .sau-workout-vivid[data-cch-focus="true"] .sau-exercise-content {
+    padding: 3px 6px 6px;
+  }
+  .sau-workout-vivid[data-cch-focus="true"] .sau-exercise-content > * + * {
+    margin-top: 4px;
+  }
+  .sau-workout-vivid[data-cch-focus="true"] [data-testid="cch-history-reference"] {
+    padding: 4px 6px;
+    font-size: 11px;
+    line-height: 1.25;
+  }
+  .sau-workout-vivid[data-cch-focus="true"] [data-testid="cch-history-reference"] p {
+    margin-top: 1px;
+  }
+  .sau-workout-vivid[data-cch-focus="true"] :is([data-testid="cch-work-clock"], [data-testid="cch-rest-clock"]) {
+    padding: 4px 6px;
+    gap: 1px;
+  }
+  .sau-workout-vivid[data-cch-focus="true"] :is([data-testid="cch-work-clock"], [data-testid="cch-rest-clock"]) .font-mono {
+    font-size: clamp(30px, 9vw, 44px);
+    line-height: 1.05;
+  }
+  .sau-workout-vivid[data-cch-focus="true"] .sau-set-result {
+    padding: 5px 6px;
+  }
+  .sau-workout-vivid[data-cch-focus="true"] .sau-result-heading {
+    align-items: center;
+    gap: 4px;
+  }
+  .sau-workout-vivid[data-cch-focus="true"] .sau-result-heading p {
+    margin-top: 0;
+    line-height: 1.2;
+  }
+  .sau-workout-vivid[data-cch-focus="true"] .sau-result-fields {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+    margin-top: 3px;
+  }
+  .sau-workout-vivid[data-cch-focus="true"] .sau-result-fields > div {
+    min-width: 0;
+  }
+  .sau-workout-vivid[data-cch-focus="true"] .sau-result-fields label {
+    font-size: 11px;
+    line-height: 1.2;
+  }
+  .sau-workout-vivid[data-cch-focus="true"] .sau-result-fields :is(input, button) {
+    min-height: 44px;
+    padding-inline: 5px;
+    font-size: 16px;
+  }
+  .sau-workout-vivid[data-cch-focus="true"] .sau-save-result > button {
+    min-height: 44px;
+  }
+  .sau-workout-vivid[data-cch-focus="true"] .sau-result-explanation {
+    margin-top: 2px;
+    font-size: 11px;
+    line-height: 1.2;
+  }
+  .sau-workout-vivid[data-cch-focus="true"] [data-testid="cch-rest-next-action"] > * + * {
+    margin-top: 4px;
+  }
+  .sau-workout-vivid[data-cch-focus="true"] .sau-workout-tools > summary {
+    padding-block: 10px;
+    min-height: 44px;
+    line-height: 1.4;
+  }
+  .sau-workout-vivid[data-cch-focus="true"] .sau-paused-panel > div {
+    padding-block: 12px;
+  }
+}
+/* At high zoom or extremely narrow widths, prioritize usability over fitting. */
+@media (max-width: 319px) {
+  .sau-workout-vivid[data-cch-focus="true"] .sau-result-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Work phase: share the viewport with the session bar, navigation and tools.
+   Only the active exercise grows; browsing another exercise keeps natural flow.
+   The outer shell already supplies 100dvh, so never add a second viewport. */
+.sau-workout-vivid[data-cch-focus="true"] .sau-execution-stack[data-sau-phase="work"] > .sau-current-exercise[data-sau-active-work="true"] {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+.sau-workout-vivid[data-cch-focus="true"] .sau-current-exercise[data-sau-active-work="true"] .sau-exercise-content {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sau-workout-vivid[data-cch-focus="true"] .sau-current-exercise[data-sau-active-work="true"] .sau-exercise-content > * + * {
+  margin-top: 0;
+}
+.sau-workout-vivid[data-cch-focus="true"] .sau-current-exercise[data-sau-active-work="true"] [data-testid="cch-work-clock"] {
+  flex: 1 0 auto;
+  justify-content: center;
+  padding: 8px 6px;
+}
+.sau-workout-vivid[data-cch-focus="true"] .sau-current-exercise[data-sau-active-work="true"] [data-testid="cch-work-clock"] .font-mono {
+  font-size: clamp(40px, 11vw, 64px);
+  line-height: 1.1;
+}
+.sau-workout-vivid[data-cch-focus="true"] .sau-primary-work-action {
+  flex: 0 0 auto;
+  min-height: 48px;
+}
+.sau-workout-vivid[data-cch-focus="true"] .sau-workout-tools {
+  flex: 0 0 auto;
+}

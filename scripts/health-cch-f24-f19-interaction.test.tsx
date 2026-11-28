@@ -26,14 +26,14 @@ const makeRest=(n:number)=>({
  workout_set_id:"s-"+n,set_number:n,started_at:"2026-11-23T22:00:00Z",
  target_seconds:90,pause_accumulated_seconds:0,paused_at:null,ended_at:null
 });
-function ExerciseHarness({initialCount=3,onStart=()=>{},history=new Map(),historyLoading=false,scope,paused=false,ready=false,onEnd=()=>{}}:{
- initialCount?:number;onStart?:(target:string)=>void;history?:Map<string,F24ExerciseHistoryStatus>;historyLoading?:boolean;scope?:string;paused?:boolean;ready?:boolean;onEnd?:()=>void
+function ExerciseHarness({initialCount=3,onStart=()=>{},history=new Map(),historyLoading=false,scope,paused=false,ready=false,working=false,onFinishWork=()=>{},onEnd=()=>{}}:{
+ initialCount?:number;onStart?:(target:string)=>void;history?:Map<string,F24ExerciseHistoryStatus>;historyLoading?:boolean;scope?:string;paused?:boolean;ready?:boolean;working?:boolean;onFinishWork?:()=>void;onEnd?:()=>void
 }){
  const [count,setCount]=useState(initialCount);
  const rest=useMemo(()=>makeRest(count),[count]);
  const sets=useMemo(()=>Array.from({length:count},(_,i)=>completed(i+1)),[count]);
  const timer={
-  available:true,loading:false,saving:false,activeInterval:ready?null:rest,intervals:ready?[]:[rest],
+  available:true,loading:false,saving:false,activeInterval:ready?null:working?{...rest,interval_type:"work",workout_set_id:null}:rest,intervals:ready?[]:[rest],
   sessionTiming:{id:"synthetic-session-timer",status:paused?"paused":"active",
    started_at:"2026-11-23T20:00:00Z",pause_accumulated_seconds:0,
    timer_paused_at:null,ended_at:null},
@@ -43,7 +43,7 @@ function ExerciseHarness({initialCount=3,onStart=()=>{},history=new Map(),histor
     setCount(n=>n+1); // synthetic response: next work then next completed rest
    }
   },
-  startWorkInterval:async(id:string)=>onStart(id),finishWorkStartRest:async()=>{},
+  startWorkInterval:async(id:string)=>onStart(id),finishWorkStartRest:async()=>{onFinishWork();},
   updateSetExecution:async()=>{},pauseWorkout:async()=>{},
   resumeWorkout:async()=>{},cancelInterval:async()=>{}
  } as unknown as HealthWorkoutTimerF19Controller;
@@ -188,6 +188,44 @@ describe("SAU visual refinement — pause presentation",()=>{
   fireEvent.click(screen.getByLabelText("Próximo exercício"));
   expect(screen.getByLabelText("Posição 2 de 2").querySelectorAll('[data-position="current"]')).toHaveLength(1);
   expect(screen.getAllByRole("button",{name:"Retomar treino"})).toHaveLength(2);
+  cleanup();
+ });
+});
+
+describe("SAU compact execution",()=>{
+ it("keeps rest clock, editable result and next action available together",()=>{
+  const {container}=render(<ExerciseHarness initialCount={1}/>);
+  expect(container.querySelector('[data-sau-phase="rest"]')).toBeTruthy();
+  expect(screen.getByTestId("cch-rest-clock")).toBeTruthy();
+  expect(container.querySelector(".sau-result-fields")?.querySelectorAll("input")).toHaveLength(3);
+  expect(screen.getByRole("button",{name:"Iniciar próxima série"})).toBeTruthy();
+  expect(screen.getByText("Trocar exercício").closest("details")?.open).toBe(false);
+  cleanup();
+ });
+ it("keeps pause and ready states distinct",()=>{
+  const view=render(<ExerciseHarness paused/>);
+  expect(view.container.querySelector('[data-sau-phase="paused"]')).toBeTruthy();
+  view.rerender(<ExerciseHarness ready initialCount={0}/>);
+  expect(view.container.querySelector('[data-sau-phase="ready"]')).toBeTruthy();
+  expect(screen.getByRole("button",{name:"Iniciar série",exact:true})).toBeTruthy();
+  cleanup();
+ });
+});
+
+describe("SAU focused work phase",()=>{
+ it("expands only the active work card and preserves explicit completion",async()=>{
+  let finished=0;
+  const view=render(<ExerciseHarness working initialCount={0} onFinishWork={()=>finished++}/>);
+  expect(view.container.querySelector('[data-sau-phase="work"]')).toBeTruthy();
+  expect(view.container.querySelector('[data-sau-active-work="true"]')).toBeTruthy();
+  expect(screen.getByTestId("cch-work-clock")).toBeTruthy();
+  expect(screen.getByRole("button",{name:"Concluir série"}).classList.contains("sau-primary-work-action")).toBe(true);
+  expect(finished).toBe(0);
+  fireEvent.click(screen.getByLabelText("Próximo exercício"));
+  expect(view.container.querySelector('[data-sau-active-work="true"]')).toBeNull();
+  fireEvent.click(screen.getByLabelText("Exercício anterior"));
+  fireEvent.click(screen.getByRole("button",{name:"Concluir série"}));
+  await waitFor(()=>expect(finished).toBe(1));
   cleanup();
  });
 });
