@@ -321,3 +321,27 @@ test('B11 other-person email and delivery CEP do not become unverified principal
   assert.equal(items.find(item => item.field === 'email'), undefined);
   assert.equal(items.find(item => item.field === 'zip_code'), undefined);
 });
+
+test('B12 quoted third-party values and explicit ownership denials never become profile proposals', () => {
+  const result = proposeCrmConversationProfileFields([
+    msg('mother', 'customer', 'E-mail: mae@example.com (da minha mãe)'),
+    msg('notmine', 'customer', 'E-mail: nao@example.com — não é meu'),
+    msg('invalid', 'customer', 'CEP: 88220-000, dado incorreto'),
+    msg('revoked', 'customer', 'Cidade: Porto Belo, desconsiderar'),
+    msg('address', 'customer', 'Endereço principal: Rua do Colega 7, do meu colega'),
+    msg('good', 'customer', 'Meu e-mail é pessoa@example.com'),
+  ], {});
+  assert.deepEqual(result.map(item => item.field), ['email']);
+  assert.equal(result[0].value, 'pessoa@example.com');
+  assert.equal(result[0].state, 'empty');
+  assert.equal(result[0].distinctValues, 1);
+});
+
+test('B12 does not convert a denied labelled field into an unverified text hint', () => {
+  const result = proposeCrmConversationProfileFields([
+    msg('third', 'customer', 'Meu e-mail é terceiro@example.com, pertence ao meu pai'),
+    msg('retracted', 'customer', 'Pode enviar para outro@example.com, não usar'),
+    msg('third-cep', 'customer', 'O CEP é 88220-000 da minha mãe'),
+  ], {});
+  assert.equal(result.length, 0);
+});
