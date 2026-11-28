@@ -46,13 +46,16 @@ const evidenceNames: Record<EvidenceState, string> = {
 // Reuse the same literal action extraction used by the workstream detail.
 function OverviewAction({ value }: { value: string }) {
   const excerpt=explicitNextActionExcerpt(value);
+  const original=value.trim();
+  const shortOriginal=!excerpt&&original.length<=220&&!/[\r\n]/.test(original);
+  const visibleExcerpt=excerpt&&excerpt.length<=480?excerpt:null;
   return <div className="space-y-1">
-    <p className="break-words whitespace-pre-wrap text-sm leading-relaxed"><strong>Próxima ação registrada:</strong>{" "}{excerpt||value.trim()||"Nenhuma próxima ação registrada nesta frente."}</p>
-    {excerpt&&<details className="rounded-md border p-2">
+    <p className="break-words whitespace-pre-wrap text-sm leading-relaxed"><strong>{visibleExcerpt?"Próxima ação registrada:":"Registro de ação:"}</strong>{" "}{visibleExcerpt||(shortOriginal?original:"")||(original?"Consulte o registro completo para conferir a próxima ação e suas condições.":"Nenhuma próxima ação registrada nesta frente.")}</p>
+    {original&&(!shortOriginal||excerpt)&&<details className="rounded-md border p-2">
       <summary className="cursor-pointer text-sm font-medium">Registro integral e ressalvas</summary>
       <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed">{value}</p>
     </details>}
-    {excerpt&&<p className="text-xs text-muted-foreground">Trecho literal; confira o registro integral e as decisões vigentes antes de executar.</p>}
+    {visibleExcerpt&&<p className="text-xs text-muted-foreground">Trecho literal; confira o registro integral e as decisões vigentes antes de executar.</p>}
   </div>;
 }
 
@@ -665,69 +668,6 @@ export default function NucleoDevelopmentCenter() {
               Buscar módulo
             </Button>
           </div>
-          <Card className="rounded-2xl border-[#c6dcfb] p-4 dark:border-blue-900" aria-label="Acesso direto ao acompanhamento CRM">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0 flex-1 space-y-1">
-                <h4 className="text-sm font-semibold">CRM · acompanhamento direto</h4>
-                <p className="text-xs text-muted-foreground">
-                  {crmModule
-                    ? `${crmFronts.length} frente(s) e ${crmSubfronts.length} subfrente(s) vinculadas ao CRM no Core M3 desta sessão. Não é inventário de todo o CRM.`
-                    : "CRM não está cadastrado como módulo na leitura M3 atual. Consulte o Atlas sem presumir ausência do trabalho."}
-                </p>
-                {crmModule && !crmAttention && <p className="text-xs text-muted-foreground">Nenhuma frente pendente localizada neste recorte M3. Consulte a fila para acessar as fichas existentes.</p>}
-                {crmAttention&&<>
-                  <p className="break-words text-sm font-medium">{humanWorkName(crmAttention.code,crmAttention.title)}</p>
-                  <div id="nucleo-crm-overview-action"><OverviewAction value={crmAttention.next_action||""}/></div>
-                  <p className="text-xs text-muted-foreground">Situação: {states.find(v=>v.key===crmAttention.status)?.label||crmAttention.status}
-                    {" · "}Responsável declarado: {crmAttention.specialist?.trim()||"não informado"}</p>
-                </>}
-              </div>
-              <Button type="button" className="min-h-11 rounded-full" onClick={focusCrm}>
-                {crmModule?"Acompanhar CRM":"Localizar CRM no Atlas"}
-              </Button>
-            </div>
-          </Card>
-          <details className="rounded-2xl border border-[#dce5f1] p-4 dark:border-slate-700"
-            aria-label="Acompanhamento transversal dos módulos no Core M3">
-            <summary className="cursor-pointer text-sm font-semibold">Atalhos de acompanhamento dos outros módulos</summary>
-            <div className="mt-3 space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h4 className="text-sm font-semibold">Acompanhar outros módulos</h4>
-                <p className="text-xs text-muted-foreground">
-                  {moduleOptions.filter(module=>module.code.toUpperCase()!=="CRM").length} módulo(s) além do CRM nesta leitura M3.
-                  A lista não representa inventário completo dos sistemas externos.
-                </p>
-              </div>
-              <Button type="button" size="sm" variant="outline" onClick={openModuleSearch}>
-                Consultar catálogo
-              </Button>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {moduleOptions.filter(module=>module.code.toUpperCase()!=="CRM")
-                .sort((a,b)=>a.code.localeCompare(b.code,"pt-BR")).map(module=>{
-                  const fronts=items.filter(item=>item.kind==="frente"&&item.parent_id===module.id);
-                  const subfronts=fronts.flatMap(front=>items.filter(item=>item.kind==="subfrente"&&item.parent_id===front.id));
-                  const linked=[...fronts,...subfronts];
-                  const pending=linked.filter(item=>item.status!=="concluido");
-                  const attention=selectAttention(linked);
-                  return <div key={module.id} className="rounded-xl border p-3 space-y-2 min-w-0">
-                    <p className="font-semibold text-sm break-words">{humanWorkName(module.code,module.title)}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {fronts.length} frente(s) diretas · {subfronts.length} subfrente(s) · {pending.length} sem conclusão declarada
-                    </p>
-                    <Button type="button" size="sm" variant="outline" className="min-h-10"
-                      onClick={()=>focusModule(module)}>Acompanhar módulo</Button>
-                    {attention&&<details className="text-xs break-words"><summary className="cursor-pointer font-medium">Em atenção: {humanWorkName(attention.code,attention.title)}</summary><OverviewAction value={attention.next_action||""}/></details>}
-                  </div>;
-                })}
-              {moduleOptions.every(module=>module.code.toUpperCase()==="CRM")&&
-                <p className="text-xs text-muted-foreground">
-                  Nenhum outro módulo operacional encontrado neste recorte M3; consulte o Atlas antes de concluir ausência de cadastro.
-                </p>}
-            </div>
-            </div>
-          </details>
           <div className="grid gap-3 lg:grid-cols-2">
             <Card className="rounded-2xl border-[#dce5f1] p-4 dark:border-slate-700" aria-label="De onde continuar">
               <h4 className="text-sm font-semibold">De onde continuar</h4>
@@ -738,12 +678,10 @@ export default function NucleoDevelopmentCenter() {
                   Situação: <strong>{states.find(v=>v.key===resumeItem.status)?.label}</strong>
                   {" · "}Atualizada em {new Date(resumeItem.updated_at).toLocaleString("pt-BR")}
                 </p>
-                {resumeIsCrmAttention
-                  ? <p className="text-sm text-muted-foreground">Esta é a mesma frente do acompanhamento direto do CRM. A próxima ação e o registro integral estão no cartão acima.</p>
-                  : <div className="rounded-xl bg-[#f5f9ff] p-3 dark:bg-slate-800">
-                      <OverviewAction value={resumeItem.next_action?.trim()||""}/>
-                    </div>}
-                <div className="rounded-xl border p-3 space-y-1" aria-label="Última atualização do trabalho">
+                <div className="rounded-xl bg-[#f5f9ff] p-3 dark:bg-slate-800">
+                    <OverviewAction value={resumeItem.next_action?.trim()||""}/>
+                  </div>
+                  <div className="rounded-xl border p-3 space-y-1" aria-label="Última atualização do trabalho">
                   <p className="text-xs font-semibold">Última atualização do trabalho nesta leitura</p>
                   {resumeCheckpoint && resumeCheckpointSummary ? <>
                     <p className="text-sm">{resumeCheckpointSummary.label} · {new Date(resumeCheckpoint.recorded_at).toLocaleString("pt-BR")}</p>
@@ -774,7 +712,7 @@ export default function NucleoDevelopmentCenter() {
             </Card>
             <Card className="rounded-2xl border-[#dce5f1] p-4 dark:border-slate-700" aria-label="Situação das frentes registradas no Core">
               <h4 className="text-sm font-semibold">O que precisa de atenção</h4>
-              <p className="mt-1 text-sm text-muted-foreground">Frentes e subfrentes M3 carregadas, sem módulos-raiz. Não é inventário global.</p>
+              <p className="mt-1 text-sm text-muted-foreground">Trabalhos e suas etapas disponíveis nesta consulta. Não representa um inventário completo.</p>
               <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
                 <button type="button" aria-label="Ver frentes: Bloqueadas"
                   onClick={()=>{setFilter("");setModuleFocusId("");setSpecialistFocus("");setAttentionStatus("bloqueado");setWorkspaceView("frentes");}}
@@ -800,6 +738,69 @@ export default function NucleoDevelopmentCenter() {
                 onClick={()=>setWorkspaceView("frentes")}>Ver frentes e próximas ações</Button>
             </Card>
           </div>
+          <Card className="rounded-2xl border-[#c6dcfb] p-4 dark:border-blue-900" aria-label="Acesso direto ao acompanhamento CRM">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 flex-1 space-y-1">
+                <h4 className="text-sm font-semibold">CRM · acompanhamento direto</h4>
+                <p className="text-xs text-muted-foreground">
+                  {crmModule
+                    ? `${crmFronts.length} frente(s) e ${crmSubfronts.length} subfrente(s) vinculadas ao CRM nesta consulta. Não é inventário de todo o CRM.`
+                    : "CRM não foi localizado nesta consulta. Explore os módulos antes de concluir que não há trabalho registrado."}
+                </p>
+                {crmModule && !crmAttention && <p className="text-xs text-muted-foreground">Nenhum trabalho pendente localizado nesta consulta. Consulte a fila para acessar as fichas existentes.</p>}
+                {crmAttention&&<>
+                  <p className="break-words text-sm font-medium">{humanWorkName(crmAttention.code,crmAttention.title)}</p>
+                  <div id="nucleo-crm-overview-action">{resumeIsCrmAttention?<p className="text-xs text-muted-foreground">A próxima ação e o registro integral estão em De onde continuar.</p>:<OverviewAction value={crmAttention.next_action||""}/>}</div>
+                  <p className="text-xs text-muted-foreground">Situação: {states.find(v=>v.key===crmAttention.status)?.label||crmAttention.status}
+                    {" · "}Responsável declarado: {crmAttention.specialist?.trim()||"não informado"}</p>
+                </>}
+              </div>
+              <Button type="button" className="min-h-11 rounded-full" onClick={focusCrm}>
+                {crmModule?"Acompanhar CRM":"Localizar CRM no Atlas"}
+              </Button>
+            </div>
+          </Card>
+          <details className="rounded-2xl border border-[#dce5f1] p-4 dark:border-slate-700"
+            aria-label="Acompanhamento dos módulos">
+            <summary className="cursor-pointer text-sm font-semibold">Atalhos de acompanhamento dos outros módulos</summary>
+            <div className="mt-3 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h4 className="text-sm font-semibold">Acompanhar outros módulos</h4>
+                <p className="text-xs text-muted-foreground">
+                  {moduleOptions.filter(module=>module.code.toUpperCase()!=="CRM").length} módulo(s) além do CRM nesta consulta.
+                  A lista não representa inventário completo dos sistemas externos.
+                </p>
+              </div>
+              <Button type="button" size="sm" variant="outline" onClick={openModuleSearch}>
+                Consultar catálogo
+              </Button>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {moduleOptions.filter(module=>module.code.toUpperCase()!=="CRM")
+                .sort((a,b)=>a.code.localeCompare(b.code,"pt-BR")).map(module=>{
+                  const fronts=items.filter(item=>item.kind==="frente"&&item.parent_id===module.id);
+                  const subfronts=fronts.flatMap(front=>items.filter(item=>item.kind==="subfrente"&&item.parent_id===front.id));
+                  const linked=[...fronts,...subfronts];
+                  const pending=linked.filter(item=>item.status!=="concluido");
+                  const attention=selectAttention(linked);
+                  return <div key={module.id} className="rounded-xl border p-3 space-y-2 min-w-0">
+                    <p className="font-semibold text-sm break-words">{humanWorkName(module.code,module.title)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {fronts.length} frente(s) diretas · {subfronts.length} subfrente(s) · {pending.length} sem conclusão declarada
+                    </p>
+                    <Button type="button" size="sm" variant="outline" className="min-h-10"
+                      onClick={()=>focusModule(module)}>Acompanhar módulo</Button>
+                    {attention&&<details className="text-xs break-words"><summary className="cursor-pointer font-medium">Em atenção: {humanWorkName(attention.code,attention.title)}</summary><OverviewAction value={attention.next_action||""}/></details>}
+                  </div>;
+                })}
+              {moduleOptions.every(module=>module.code.toUpperCase()==="CRM")&&
+                <p className="text-xs text-muted-foreground">
+                  Nenhum outro módulo operacional encontrado nesta consulta; consulte o catálogo antes de concluir ausência de cadastro.
+                </p>}
+            </div>
+            </div>
+          </details>
           <details className="rounded-xl border p-3">
             <summary className="cursor-pointer text-sm font-semibold">Panorama detalhado das frentes</summary>
             <div className="mt-3">
@@ -823,7 +824,7 @@ export default function NucleoDevelopmentCenter() {
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#dce5f1] bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
             <div>
               <h4 className="text-sm font-semibold">Precisa explorar um módulo?</h4>
-              <p className="text-xs text-muted-foreground">Consulte especialistas, Ficha Viva e documentação no Atlas detalhado.</p>
+              <p className="text-xs text-muted-foreground">Consulte especialistas, conhecimento e documentos dos módulos.</p>
             </div>
             <Button type="button" variant="outline" className="min-h-11 rounded-full"
               aria-expanded={atlasExpanded} aria-controls="nucleo-atlas-completo" onClick={toggleAtlas}>
