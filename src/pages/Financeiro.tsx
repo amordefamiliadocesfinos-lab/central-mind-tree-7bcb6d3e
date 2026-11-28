@@ -20,7 +20,7 @@ import { useFinancial, EntryStatus } from '@/hooks/useFinancial';
 import { Users, DollarSign, FileText, Upload } from 'lucide-react';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarIcon, Calculator, LayoutDashboard, TrendingDown, TrendingUp, Wallet, Tag } from 'lucide-react';
+import { CalendarIcon, Calculator, LayoutDashboard, TrendingDown, TrendingUp, Wallet, Tag, ArrowRightLeft, ShoppingBag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SALES_CHANNELS } from '@/lib/salesChannels';
@@ -31,6 +31,11 @@ import { useIsMobile } from '@/hooks/use-mobile';
 export default function Financeiro() {
   const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [quickAction, setQuickAction] = useState<'receber' | 'pagar' | 'contas' | null>(null);
+  const openQuickAction = (target: 'receber' | 'pagar' | 'contas') => {
+    setActiveTab(target);
+    setQuickAction(target);
+  };
   const [importerOpen, setImporterOpen] = useState(false);
   const [reviewImportedOpen, setReviewImportedOpen] = useState(false);
   const [integrityOpen, setIntegrityOpen] = useState(false);
@@ -100,6 +105,12 @@ export default function Financeiro() {
       <MobileHeader title="Financeiro" showBack />
 
       <div className="container mx-auto p-4 space-y-4">
+        <section aria-label="Operações rápidas" className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+          <Button variant="outline" className="h-auto py-3 justify-start gap-2" onClick={() => openQuickAction('receber')}><TrendingUp className="h-5 w-5 text-emerald-600" /> Nova conta a receber</Button>
+          <Button variant="outline" className="h-auto py-3 justify-start gap-2" onClick={() => openQuickAction('pagar')}><TrendingDown className="h-5 w-5 text-red-500" /> Nova conta a pagar</Button>
+          <Button variant="outline" className="h-auto py-3 justify-start gap-2" onClick={() => openQuickAction('contas')}><ArrowRightLeft className="h-5 w-5 text-blue-600" /> Transferir</Button>
+          <Button variant="outline" className="h-auto py-3 justify-start gap-2" onClick={() => setSettlementOpen(true)}><ShoppingBag className="h-5 w-5 text-orange-600" /> Conciliar repasse</Button>
+        </section>
         {/* Period selector */}
         <div className="flex flex-wrap items-center gap-2">
           <Popover>
@@ -147,7 +158,6 @@ export default function Financeiro() {
           <Select value={filters.marketplaceAccount || 'all'} onValueChange={v => applyGlobalFilter({ marketplaceAccount: v === 'all' ? undefined : v })}><SelectTrigger className="w-[190px]"><SelectValue placeholder="Todas as lojas" /></SelectTrigger><SelectContent><SelectItem value="all">Todas as contas do canal</SelectItem>{channelAccounts.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent></Select>
 
           <Button variant="outline" size="sm" onClick={() => setIntegrityOpen(true)} className="ml-auto">Revisar integrações</Button>
-          <Button variant="outline" size="sm" onClick={() => setSettlementOpen(true)}>Conciliar repasse</Button>
           <Button variant="outline" size="sm" onClick={() => setReviewImportedOpen(true)}>Revisar importados</Button>
           <Button variant="outline" size="sm" onClick={() => setImporterOpen(true)} className="gap-2">
             <Upload className="h-4 w-4" /> Importar Extrato
@@ -235,6 +245,8 @@ export default function Financeiro() {
             <FinancialEntriesList
               entries={entries}
               type="receber"
+              quickCreate={quickAction === "receber"}
+              onQuickCreateConsumed={() => setQuickAction(null)}
               categories={categories}
               accounts={accounts}
               loading={loading}
@@ -255,6 +267,8 @@ export default function Financeiro() {
             <FinancialEntriesList
               entries={entries}
               type="pagar"
+              quickCreate={quickAction === "pagar"}
+              onQuickCreateConsumed={() => setQuickAction(null)}
               categories={categories}
               accounts={accounts}
               loading={loading}
@@ -273,6 +287,8 @@ export default function Financeiro() {
 
           <TabsContent value="contas">
             <AccountsManager 
+              quickTransfer={quickAction === 'contas'}
+              onQuickTransferConsumed={() => setQuickAction(null)}
               accounts={accounts} 
               onSave={saveAccount} 
               startDate={filters.startDate}
