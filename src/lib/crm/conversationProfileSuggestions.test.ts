@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { proposeCrmConversationProfileFields } from './conversationProfileSuggestions';
+import { proposeCrmConversationProfileFields, buildCrmConversationSaveReport } from './conversationProfileSuggestions';
 import { buildContactProfilePatch, getContactPatchConflicts } from './contactEditContract';
 
 const msg = (id: string, sender: string, content: string, created_at = '2026-11-27T12:00:00Z') => ({
@@ -514,4 +514,43 @@ test('B19 denial for another phone does not invalidate the actual contact number
     msg('other', 'customer', 'Telefone: 47988888888 não é meu', '2026-11-27T14:00:00Z'),
   ], {});
   assert.equal(result.find(item => item.field === 'phone')?.state, 'empty');
+});
+
+test('U4-B closeout: classify filled, ignored and pending using canonical returned contact', () => {
+  const proposals = proposeCrmConversationProfileFields([
+    msg('data', 'customer', 'Meu nome é Ana Teste\nE-mail: ana@example.com\nCidade: Itapema\nCEP: 88220-000'),
+  ], { email: 'ja@example.com', zip_code: '88220000' });
+  const report = buildCrmConversationSaveReport(proposals, ['name'], ['name'], {
+    name: 'Ana Teste', email: 'ja@example.com', zip_code: '88220000',
+  });
+  assert.deepEqual(report.filled, ['name']);
+  assert.deepEqual(report.ignored, ['zip_code']);
+  assert.deepEqual(report.pending, ['email']);
+  // Cidade vazia e não escolhida foi intencionalmente ignorada.
+  assert.ok(report.ignored.includes('city'));
+});
+
+test('U4-B closeout: selected but unconfirmed fields must remain pending', () => {
+  const proposals = proposeCrmConversationProfileFields([
+    msg('data', 'customer', 'E-mail: ana@example.com'),
+  ], {});
+  const missingWriterDelta = buildCrmConversationSaveReport(proposals, ['email'], [], {
+    email: 'ana@example.com',
+  });
+  assert.deepEqual(missingWriterDelta.filled, []);
+  assert.deepEqual(missingWriterDelta.pending, ['email']);
+  const mismatch = buildCrmConversationSaveReport(proposals, ['email'], ['email'], {
+    email: 'outro@example.com',
+  });
+  assert.deepEqual(mismatch.pending, ['email']);
+});
+
+test('U4-B closeout: post-save UI exposes three distinct evidence outcomes without another writer', () => {
+  const panel = readFileSync('src/components/crm/ConversationProfileSuggestions.tsx', 'utf8');
+  assert.match(panel, /buildCrmConversationSaveReport\(suggestions, selectedFields, saved\.changedFields, saved\.contact\)/);
+  assert.match(panel, /Resultado da conferência cadastral/);
+  assert.match(panel, /Preenchidos \(\{saveReport\.filled\.length\}\)/);
+  assert.match(panel, /Ignorados \(\{saveReport\.ignored\.length\}\)/);
+  assert.match(panel, /Pendentes \(\{saveReport\.pending\.length\}\)/);
+  assert.doesNotMatch(panel, /\.upsert\(|\.insert\(/);
 });
