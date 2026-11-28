@@ -39,3 +39,18 @@ assert(atlas.includes("selectModuleArea(nextArea.id)"));
 assert(atlas.includes("ordem de leitura, não progresso do trabalho"));
 assert(atlas.includes('hidden={moduleSection!=="conhecimento"}'));
 assert(atlas.includes('hidden={moduleSection!=="especialista"}'));
+
+const {humanNucleusState,humanKnowledgeSection}=box.exports;
+assert.equal(humanNucleusState("observado"),"Observação registrada");
+assert.equal(humanNucleusState("verificado"),"Verificado na origem");
+assert.notEqual(humanNucleusState("observado"),humanNucleusState("homologado"));
+assert.equal(humanNucleusState("desconhecido"),"desconhecido");
+assert.equal(humanKnowledgeSection("FM-10"),"Aprendizados");
+assert.equal(humanKnowledgeSection("FM-99"),"FM-99");
+const continuity=fs.readFileSync("src/components/nucleo/NucleoAc02NucContextRead.tsx","utf8");
+assert(continuity.includes("Preparar continuidade do especialista"));
+assert(continuity.includes("Conhecimento recuperado para consulta. Não representa aprovação formal."));
+const evidence=fs.readFileSync("src/components/nucleo/NucleoTechnicalEvidence.tsx","utf8");
+assert(evidence.includes('observado: "Observado", verificado: "Verificado na origem"'));
+assert(evidence.includes("Identificação técnica: {record.external_key}"));
+assert(evidence.includes('record.registration_origin === "administrativo_lovable"'));

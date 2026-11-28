@@ -10,7 +10,7 @@ const client = supabase as unknown as SupabaseClient<NucleoDevelopmentDatabase>;
 const officialRepo = "https://github.com/amordefamiliadocesfinos-lab/central-mind-tree-7bcb6d3e/";
 const kinds: TechnicalEvidence["kind"][] = ["pull_request", "workflow_run", "migration", "commit"];
 const labels: Record<TechnicalEvidence["kind"], string> = {
-  pull_request: "Pull requests", workflow_run: "Testes / CI", migration: "Migrations", commit: "Commits",
+  pull_request: "Alterações propostas (PRs)", workflow_run: "Testes automatizados", migration: "Atualizações do banco", commit: "Versões do código",
 };
 const statuses: Record<TechnicalEvidence["observed_state"], string> = {
   observado: "Observado", verificado: "Verificado na origem",
@@ -81,12 +81,12 @@ export default function NucleoTechnicalEvidence({ workstreamId }: { workstreamId
     .filter((value): value is string => !!value).sort().at(-1), [records]);
 
   return (
-    <section className="border-t pt-3 space-y-2" aria-label="Evidências técnicas M4">
+    <section className="border-t pt-3 space-y-2" aria-label="Evidências técnicas">
       <div className="flex items-center justify-between gap-2">
-        <h4 className="font-semibold text-sm">Evidências técnicas — M4</h4>
+        <h4 className="font-semibold text-sm">Evidências técnicas</h4>
         <Button type="button" variant="outline" size="sm" disabled={loading}
           onClick={() => setReloadKey(key => key + 1)}
-          title="Reconsultar registros armazenados no Core; não consulta GitHub em tempo real">
+          title="Consultar novamente os registros da base oficial; não consulta GitHub em tempo real">
           <RefreshCw className="h-3.5 w-3.5 mr-1" /> Recarregar
         </Button>
       </div>
@@ -101,7 +101,7 @@ export default function NucleoTechnicalEvidence({ workstreamId }: { workstreamId
         Última conferência registrada: {new Date(lastChecked).toLocaleString("pt-BR")}
       </p>}
       {(!current || loading) && <p role="status" className="text-xs text-muted-foreground">Consultando evidências…</p>}
-      {current && !loading && error && <p role="status" className="text-xs text-muted-foreground">Evidências temporariamente indisponíveis.</p>}
+      {current && !loading && error && <p role="status" className="text-xs text-muted-foreground">Não foi possível consultar as evidências. Tente recarregar.</p>}
       {current && !loading && !error && records.length === 0 && (
         <p className="text-xs text-muted-foreground">Nenhuma evidência encontrada no recorte autorizado. Isso não comprova ausência em outras fontes.</p>
       )}
@@ -126,7 +126,7 @@ export default function NucleoTechnicalEvidence({ workstreamId }: { workstreamId
                       <div className="min-w-0 flex-1">
                         <p className="font-medium text-xs break-words">{record.title}</p>
                         <p className="text-[11px] text-muted-foreground">
-                          {record.external_key} · {statuses[record.observed_state]}
+                          {statuses[record.observed_state]}
                         </p>
                       </div>
                       <button type="button" onClick={() => toggleRecord(record.id)}
@@ -141,10 +141,11 @@ export default function NucleoTechnicalEvidence({ workstreamId }: { workstreamId
                     {detailsOpen && <div className="space-y-1 text-xs text-muted-foreground border-t pt-2">
                       <p>Observada na origem: {record.source_observed_at?new Date(record.source_observed_at).toLocaleString("pt-BR"):"Não informada"}</p>
                       {record.checked_at && <p>Conferida: {new Date(record.checked_at).toLocaleString("pt-BR")}</p>}
+                      <p>Identificação técnica: {record.external_key}</p>
                       <p>Registrada: {new Date(record.recorded_at).toLocaleString("pt-BR")}</p>
-                      <p>Origem do registro M4: {record.recorded_by_auth_uid ? "Autoria humana identificada" : record.registration_origin === "administrativo_lovable" ? "Registro administrativo Lovable · sem autoria humana Auth" : "Legado sem autoria humana identificada"}</p>
+                      <p>Origem do registro: {record.recorded_by_auth_uid ? "Autoria humana identificada" : record.registration_origin === "administrativo_lovable" ? "Registro administrativo Lovable · autor individual não identificado" : "Legado sem autoria humana identificada"}</p>
                       {record.kind !== "migration" && <p className="break-all">{sourceDetails.shaLabel}: {sourceDetails.sha ?? (sourceDetails.conflict ? "metadados inconsistentes" : "não informado no snapshot")}</p>}
-                      {record.kind === "migration" && <p>Versão da migration: {record.external_key}</p>}
+                      {record.kind === "migration" && <p>Versão da atualização do banco: {record.external_key}</p>}
                       {record.evidence_note && <p className="break-words">{record.evidence_note}</p>}
                     </div>}
                   </div>

@@ -161,7 +161,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
         // cobertura ou oferecer nova escrita a partir de histórico parcial.
         if(result.error||!result.data){
           setRevisions([]);
-          setError("Ficha Viva indisponível: leitura negada ou incompleta. Confirme migration e autorização no Core.");
+          setError("Não foi possível consultar o conhecimento do módulo. Confira o acesso ou solicite uma verificação ao responsável.");
         } else if(result.data.length>=MAX_FM_HISTORY_ROWS){
           setRevisions([]);
           setError("Histórico da Ficha Viva atingiu o limite de leitura. A cobertura e a próxima versão são indeterminadas; não registre outra revisão antes de reconciliar o histórico completo.");
@@ -387,7 +387,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
               className={`nucleo-v22-area-card min-h-16 min-w-0 rounded-md border p-2.5 text-left text-sm leading-snug space-y-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${section === entry.code ? "border-primary bg-accent" : "hover:bg-muted"}`}>
               <span className="block font-semibold">{knowledgeSectionLabels[entry.code]}</span><span className="sr-only">{entry.code} · {sections[entry.code]}</span>
               <span className="block text-muted-foreground">
-                {loading ? "Core: consultando" : error ? "Core: leitura indisponível" : entry.revisionCount > 0 ? `Core: ${entry.revisionCount} versão(ões)` : "Core: sem registro neste recorte"}
+                {loading ? "Consultando registros" : error ? "Consulta indisponível" : entry.revisionCount > 0 ? `${entry.revisionCount} versão(ões) registradas` : "Sem registro nesta consulta"}
               </span>
               <span className="block text-muted-foreground">{entry.hasTemplate ? "Modelo disponível" : "Modelo pendente"}</span>
             </button>
@@ -426,11 +426,11 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" size="sm"
               disabled={saving} onClick={()=>onOpenAc01Stage("vincular")}>
-              Vincular fonte no AC-01
+              Vincular fonte do documento
             </Button>
             <Button type="button" variant="outline" size="sm"
               disabled={saving} onClick={()=>onOpenAc01Stage("versoes")}>
-              Consultar versões AC-01
+              Consultar versões dos documentos
             </Button>
             <Button type="button" variant="outline" size="sm"
               disabled={saving} onClick={()=>onOpenAc01Stage("refinar")}>
@@ -442,14 +442,14 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
             </Button>
             <Button type="button" variant="outline" size="sm"
               disabled={saving} onClick={()=>onOpenAc01Stage("historico")}>
-              Consultar histórico AC-01
+              Consultar histórico dos documentos
             </Button>
           </div>
         </div>}
       {["FM-04","FM-05","FM-06","FM-07","FM-08","FM-09","FM-10"].includes(section)&&
         <section className="rounded-md border p-3 space-y-2" aria-label="Vínculos de prova operacional da seção FM">
           <div className="flex flex-wrap gap-2 items-center justify-between">
-            <h5 className="text-sm font-semibold">Vínculos de origem para {section}</h5>
+            <h5 className="text-sm font-semibold">Fontes relacionadas a {knowledgeSectionLabels[section]}</h5>
             <Badge variant="outline">{linkedEvidence.length} referência(s) catalogada(s)</Badge>
           </div>
           <p className="text-xs text-muted-foreground">
@@ -533,7 +533,7 @@ export default function NucleoModuleKnowledge({moduleId,moduleCode,onDraftStateC
           ausência de registro nesta janela não comprova ausência de evento anterior.
         </p>
         {!fm09?<p role="status" className="text-xs text-muted-foreground">
-          Recorte M3 não disponível nesta sessão; consultar a área Desenvolvimento do módulo.
+          Trabalhos não disponíveis nesta sessão; consulte a área Desenvolvimento do módulo.
         </p>:<>
           <p className="text-xs">Frentes e subfrentes vinculadas: {fm09.fronts.length} · Eventos no recorte: {fm09.events.length}</p>
           <div className="space-y-2">

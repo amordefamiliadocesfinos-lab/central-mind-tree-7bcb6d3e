@@ -40,3 +40,19 @@ export function matchesHumanWork(query:string,code:string,original:string,...add
   const term=normalize(query);
   return !term || [code,original,humanWorkName(code,original),...additional].some(value=>normalize(value).includes(term));
 }
+
+const stateLabels: Readonly<Record<string,string>> = Object.freeze({
+  planejado:"Planejado", em_andamento:"Em andamento", bloqueado:"Bloqueado",
+  em_validacao:"Em validação", concluido:"Concluído (estado registrado)",
+  sem_evidencia:"Sem evidência registrada", relatada:"Relatada", comprovada:"Comprovada (estado registrado)",
+  proposta:"Proposta", rascunho:"Rascunho", homologado:"Aprovado formalmente (estado registrado)",
+  historico:"Histórico", declarado:"Declarado", observado:"Observação registrada",
+  verificado:"Verificado na origem", divergente:"Divergência", nao_verificado:"Não verificado",
+});
+export function humanNucleusState(value:string):string {
+  return Object.prototype.hasOwnProperty.call(stateLabels,value) ? stateLabels[value] : value;
+}
+export function humanKnowledgeSection(code:string):string {
+  return Object.prototype.hasOwnProperty.call(knowledgeSectionLabels,code)
+    ? knowledgeSectionLabels[code as keyof typeof knowledgeSectionLabels] : code;
+}

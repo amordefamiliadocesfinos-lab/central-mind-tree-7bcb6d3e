@@ -1,3 +1,4 @@
+import { humanKnowledgeSection, humanNucleusState } from "@/lib/nucleo/humanLanguageV1";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -207,41 +208,41 @@ export default function NucleoAc02ContinuityRead({moduleId,moduleCode,onViewWork
  }
  return <section id="nucleo-ac02-module-context" tabIndex={-1} className="rounded-md border p-3 space-y-3 scroll-mt-28 focus-visible:ring-2 focus-visible:ring-ring" aria-label="Continuidade do especialista AC-02">
   <div className="flex flex-wrap gap-2 items-center justify-between">
-   <h5 className="font-semibold text-sm">Continuidade do especialista · AC-02</h5>
-   <Badge variant="outline">Rascunho consultivo, não mandato</Badge>
+   <h5 className="font-semibold text-sm">Continuidade do especialista</h5>
+   <Badge variant="outline">Rascunho para consulta, sem concessão de autoridade</Badge>
   </div>
   <p className="text-xs text-muted-foreground">
-   Consulta o Core pela sessão autenticada e concessão nucleo_manage. Não concede acesso,
+   Consulta a base oficial com as permissões da sessão. Não concede acesso,
    não transmite conteúdo automaticamente e não certifica fontes, método ou recebimento.
   </p>
   <Button type="button" className="min-h-11" onClick={prepare} disabled={busy}>
-   {busy?"Consultando Core…":"Preparar contexto de continuidade"}
+   {busy?"Consultando informações…":"Preparar contexto de continuidade"}
   </Button>
   <nav aria-label="Conferir contexto antes da assunção" className="rounded-md border p-3 space-y-2">
    <p className="text-xs font-semibold">Localizar o contexto para continuar</p>
    <p className="text-xs text-muted-foreground">
-    Consulte o último checkpoint e a próxima ação nas frentes M3, as versões em AC-01 e os limites de mandato.
+    Consulte as últimas atualizações, próximas ações, versões dos documentos e limites de atuação.
     Esses registros precisam ser conferidos na fonte; nenhum é declarado aceito por esta navegação.
    </p>
    <div className="flex flex-wrap gap-2">
-    {onViewWorkstreams&&<Button type="button" size="sm" variant="outline" onClick={onViewWorkstreams}>Frentes e checkpoints M3</Button>}
-    {onViewDocuments&&<Button type="button" size="sm" variant="outline" onClick={onViewDocuments}>Documentos e versões AC-01</Button>}
+    {onViewWorkstreams&&<Button type="button" size="sm" variant="outline" onClick={onViewWorkstreams}>Trabalhos e últimas atualizações</Button>}
+    {onViewDocuments&&<Button type="button" size="sm" variant="outline" onClick={onViewDocuments}>Documentos e versões</Button>}
     {onViewMandates&&<Button type="button" size="sm" variant="outline" onClick={onViewMandates}>Mandatos e limites</Button>}
    </div>
   </nav>
   {busy&&<p role="status" className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
-    Consultando contexto AC-02 no Core. O resultado ainda não foi validado e nenhum pacote foi preparado.
+    Consultando informações para continuidade. O resultado ainda não foi validado e nenhum pacote foi preparado.
   </p>}
   {error&&<p role="alert" className="text-xs text-destructive">{error}</p>}
   {visibleDraft&&draft&&<div className="space-y-3">
    <p role="status" className="text-xs">
-    Contexto recebido do endpoint. {draft.unresolved.length} ressalva(s) de continuidade.
+    Informações recuperadas para consulta. {draft.unresolved.length} ressalva(s) de continuidade.
     O texto permanece NÃO HOMOLOGADO até verificação humana.
    </p>
    {registry&&<div className="space-y-3 rounded-xl border border-[#d2e3fc] bg-[#f5f9ff] p-3 dark:border-blue-900 dark:bg-blue-950/20"
        aria-label="Registro Mestre AC-02 — identidade e verificação">
      <div>
-       <p className="text-sm font-semibold text-[#174ea6] dark:text-blue-200">Registro Mestre do ecossistema · AC-02</p>
+       <p className="text-sm font-semibold text-[#174ea6] dark:text-blue-200">Identidade e fontes oficiais</p>
        <p className="mt-1 text-xs text-muted-foreground">
          Metadados não secretos autorizados; identidade declarada pela Camada Mestre é diferente de situação técnica verificada.
        </p>
@@ -278,25 +279,25 @@ export default function NucleoAc02ContinuityRead({moduleId,moduleCode,onViewWork
      <p className="text-xs text-muted-foreground">{registry.usageLimit}</p>
    </div>}
    <section className="rounded-md border p-3 space-y-3" aria-label="Experiências e checkpoints F5">
-    <h6 className="font-semibold text-sm">Evolução e aprendizagem · F5</h6>
+    <h6 className="font-semibold text-sm">Evolução e aprendizados</h6>
     <p className="text-xs text-muted-foreground">Revisões retornadas pela leitura autorizada do Core. O conteúdo consultado nesta sessão não integra o pacote portátil. Estado e evidência são declarados na revisão, não verificados por este painel.</p>
     {learning.map(item=><article key={item.section} className="rounded-md border p-2 space-y-2 text-xs">
-     <p className="font-semibold">{item.section} · {item.section==="FM-09"?"Evolução e checkpoint":"Erros, acertos e aprendizagem"}</p>
+     <p className="font-semibold">{humanKnowledgeSection(item.section)}</p>
      {item.state==="ausente"&&<p>Sem revisão retornada neste recorte autorizado; não significa ausência global de conhecimento.</p>}
      {item.state==="indeterminado"&&<p>Leitura ausente ou incompatível. Consulte a Ficha Viva na origem.</p>}
      {item.revision&&<>
       <p className="font-medium">{item.revision.title} · v{item.revision.version}</p>
-      <p>Autoridade declarada: {item.revision.authority} · Evidência declarada: {item.revision.evidence}</p>
+      <p>Autoridade declarada: {humanNucleusState(item.revision.authority)} · Evidência declarada: {humanNucleusState(item.revision.evidence)}</p>
       <p className="break-all">Revisão {item.revision.id} · {new Date(item.revision.recordedAt).toLocaleString("pt-BR")}</p>
       <p>Referência de origem: {item.revision.sourcePresent?"preenchida, conferir na Ficha Viva":"ausente na revisão"}</p>
       <details><summary className="cursor-pointer font-medium">Ler conteúdo original da revisão retornada</summary>
        <p className="whitespace-pre-wrap break-words max-h-80 overflow-auto mt-2">{item.revision.body}</p>
       </details>
      </>}
-     {onViewLearning&&<Button type="button" size="sm" variant="outline" onClick={()=>onViewLearning(item.section)}>Abrir seção {item.section} e versões na Ficha Viva</Button>}
+     {onViewLearning&&<Button type="button" size="sm" variant="outline" onClick={()=>onViewLearning(item.section)}>Consultar {humanKnowledgeSection(item.section)} e versões</Button>}
     </article>)}
     <p className="text-xs text-muted-foreground">Confronte FM-09/10 com fatos M3/M4 e versões anteriores antes de reutilizar uma lição ou retomar uma frente. Nenhuma decisão ou aceite é inferido.</p>
-    {onViewWorkstreams&&<Button type="button" variant="outline" size="sm" onClick={onViewWorkstreams}>Conferir frentes e evidências M3/M4</Button>}
+    {onViewWorkstreams&&<Button type="button" variant="outline" size="sm" onClick={onViewWorkstreams}>Conferir trabalhos e evidências</Button>}
     {onViewResume&&<Button type="button" variant="outline" size="sm" onClick={onViewResume}>Retomar próximas ações registradas</Button>}
    </section>
    <details className="rounded-md border p-3 space-y-2" aria-label="Índice consultivo de fontes versionadas">
@@ -311,13 +312,13 @@ export default function NucleoAc02ContinuityRead({moduleId,moduleCode,onViewWork
     <p className="text-xs text-muted-foreground">Abra a origem com sua própria autorização; confira método, versões, FM-09/10 e decisões no Core. Nenhum conteúdo privado é copiado ou transferido por este índice.</p>
    </details>
    <section aria-label="Etapas de assunção — comprovações" className="rounded-xl border p-3">
-     <h6 className="text-sm font-semibold">Situação do Pacote Oficial de Assunção</h6>
+     <h6 className="text-sm font-semibold">Etapas para dar continuidade ao especialista</h6>
      <p className="text-xs text-muted-foreground">Preparação é somente um rascunho da sessão. Não existe aqui registro de disponibilização, entrega, recebimento ou aceite.</p>
      <ol className="mt-2 grid gap-2 sm:grid-cols-5">
        {handoffStages.map((stage,index)=><li key={stage}
          className={"rounded-lg border p-2 text-xs "+(index===0?"border-blue-200 bg-[#e8f0fe] text-[#174ea6] dark:border-blue-900 dark:bg-blue-950":"bg-muted/20")}>
          <p className="font-semibold">{index+1}. {stage}</p>
-         <p className="mt-1">{index===0?"Rascunho gerado nesta sessão — não homologado":"Não comprovado pelo backend consultado"}</p>
+         <p className="mt-1">{index===0?"Rascunho gerado nesta sessão — não homologado":"Não comprovado pela consulta"}</p>
        </li>)}
      </ol>
    </section>

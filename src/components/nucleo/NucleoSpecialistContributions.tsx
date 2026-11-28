@@ -63,7 +63,7 @@ const FLOW:ReadonlyArray<{id:DocStage;name:string;area:ExperienceArea;tab?:GovTa
 const AREAS: Array<{id:ExperienceArea;title:string;hint:string}> = [
  {id:"contribuicoes",title:"Contribuições e origem",hint:"Referências, versões e registro"},
  {id:"fila",title:"Fila e revisões",hint:"Pendências, refinamento e continuidade"},
- {id:"ciclo",title:"Ciclo documental AC-01",hint:"Estados, competências, decisões e histórico"},
+ {id:"ciclo",title:"Documentos, decisões e histórico",hint:"Estados, competências, decisões e histórico"},
 ];
 export default function NucleoSpecialistContributions({moduleId,moduleName,declaredRole,onDraftStateChange,requestedStage}:Props){
  const fence=usePendingWriteFence("ac01",moduleId);
@@ -318,7 +318,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
  };
  return <section className="nucleo-v22-surface p-3 md:p-4 space-y-3" aria-label="Contribuições documentais do especialista AC-01">
    <div>
-     <h4 className="nucleo-v22-title text-lg">Conhecimento e Evolução — contribuições do especialista</h4>
+     <h4 className="nucleo-v22-title text-lg">Documentos e versões do especialista</h4>
      <p className="text-xs text-muted-foreground mt-1">
        Piloto transversal por referência. Registra metadados do documento original, não carrega arquivo nem certifica especialista.
        O papel informado não equivale a mandato vigente e nenhum conteúdo é enviado à IA.
@@ -335,7 +335,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
      Registro em andamento. Aguarde a conferência no Core antes de navegar ou repetir.
    </p>}
    {draftDirty&&!saving&&!uncertainRef.current&&<p role="status" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/20 dark:text-amber-100">
-     Minuta AC-01 não salva neste módulo. A troca de etapas preserva o formulário; registrar a proposta exige ação explícita.
+     Rascunho de documento não salvo neste módulo. A troca de etapas preserva o formulário; registrar a proposta exige ação explícita.
    </p>}
    {fence.blocked&&!uncertainRef.current&&<p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">Tentativa pendente nesta conta e módulo, inclusive após recarregamento. O conteúdo da minuta não foi salvo no navegador; reconcilie no Core antes de repetir.</p>}
    {fence.blocked&&<div className="space-y-2">
@@ -344,7 +344,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
        :"Trava antiga sem testemunho técnico, ou sessão não verificada. A liberação automática não é permitida; encaminhe à governança."}</p>
      {fence.witness&&<Button type="button" size="sm" variant="outline"
        disabled={recovering||saving||reading} onClick={()=>void recoverPersistent()}>
-       {recovering?"Conferindo no Core…":"Reconciliar trava AC-01 com o Core"}</Button>}
+       {recovering?"Conferindo no Core…":"Conferir tentativa de registro anterior"}</Button>}
    </div>}
    {uncertainRef.current&&<p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
      Resultado indeterminado. Reconsulte o Core e reconcilie a proposta antes de repetir a operação ou trocar de etapa.
@@ -505,7 +505,7 @@ export default function NucleoSpecialistContributions({moduleId,moduleName,decla
        setTitle("");setLocator("");setNote("");setChecksum("");setParentId("");setRole(declaredRole||"");setKind("metodo");setSourceKind("referencia_privada");setFeedback("Minuta local descartada. Nenhum registro do Core alterado.");
      }}>Descartar minuta local</Button>
      <Button type="button" size="sm" className="min-h-11 w-full whitespace-normal sm:w-auto" onClick={()=>void submit()} disabled={reading||Boolean(readError)||saving||uncertainRef.current||referenceMissing||!fence.ready||fence.blocked}>
-       {saving?"Conferindo registro…":"Registrar proposta e conferir no Core"}
+       {saving?"Conferindo registro…":"Registrar proposta e confirmar"}
      </Button>
 
    </div>

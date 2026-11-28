@@ -1,3 +1,4 @@
+import { humanWorkName, humanNucleusState, humanKnowledgeSection } from "@/lib/nucleo/humanLanguageV1";
 import {useEffect,useRef,useState} from "react";
 import {useAuth} from "@/contexts/AuthContext";
 import {supabase} from "@/integrations/supabase/client";
@@ -174,11 +175,11 @@ export default function NucleoAc02NucContextRead(){
  }
  return <section id="nucleo-ac02-consulta" tabIndex={-1} className="scroll-mt-28 rounded-xl border p-3 space-y-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Assunção consultiva do Núcleo AC-02">
   <div className="space-y-1">
-   <h4 className="text-sm font-semibold">Continuidade do Especialista Núcleo · AC-02</h4>
+   <h4 className="text-sm font-semibold">Continuidade do especialista do Núcleo</h4>
    <p className="text-xs text-muted-foreground">Consulta restrita por sessão e permissão. Não concede mandato, não homologa mapa nem entrega contexto a outro usuário.</p>
   </div>
   <Button type="button" size="sm" variant="outline" disabled={busy} onClick={()=>void read()}>
-   {busy?"Consultando Core…":"Preparar contexto NUC para continuidade"}
+   {busy?"Consultando informações…":"Preparar continuidade do especialista"}
   </Button>
   {error&&<p role="alert" className="text-xs text-destructive">{error}</p>}
   {visibleResult&&<div className="space-y-2">
@@ -186,17 +187,17 @@ export default function NucleoAc02NucContextRead(){
    <p className="text-xs">Mapa: {visibleResult.contribution.title} · v{visibleResult.contribution.version_no} · {visibleResult.contribution.authority_state}</p>
    <p className="text-xs break-all">Contribuição AC-01: {visibleResult.contribution.id}</p>
    {u06&&<section className="rounded-lg border p-3 space-y-2 text-xs" aria-label="Diagnóstico da projeção contextual U06">
-    <h5 className="font-semibold text-sm">Contexto de continuidade U06</h5>
+    <h5 className="font-semibold text-sm">Conhecimento recuperado</h5>
     {u06.state==="legacy"&&<p role="status">Resposta legada: projeção U06 não recebida. A consulta anterior permanece disponível.</p>}
     {u06.state==="incomplete"&&<p role="status">Projeção U06 incompleta ou incompatível. Sem confirmação de cobertura contextual.</p>}
     {u06.state==="current"&&<>
-     <p role="status">Projeção contextual U06 recebida e validada · consultivo_nao_homologado</p>
-     <p>Raiz NUC · atualização do Core: {u06.data.root.updated_at}</p>
-     <p>Seções FM recebidas: {u06.data.sections.length}/4</p>
-     <ul>{u06.data.sections.map(row=><li key={row.code}>{row.code} · v{row.version} · {row.authority}</li>)}</ul>
-     <p>Revisões AC-01 recebidas: {u06.data.revisions.length}</p>
+     <p role="status">Conhecimento recuperado para consulta. Não representa aprovação formal.</p>
+     <p>Última atualização do Núcleo: {u06.data.root.updated_at}</p>
+     <p>Assuntos recuperados: {u06.data.sections.length}/4</p>
+     <ul>{u06.data.sections.map(row=><li key={row.code}>{humanKnowledgeSection(row.code)} · v{row.version} · {humanNucleusState(row.authority)}</li>)}</ul>
+     <p>Revisões de documentos recuperadas: {u06.data.revisions.length}</p>
      <ul>{u06.data.revisions.map(row=><li key={row.id} className="break-all">{row.id} · v{row.version} · {row.authority}</li>)}</ul>
-     <details><summary className="cursor-pointer font-medium">Registro integral da próxima ação NUC</summary>
+     <details><summary className="cursor-pointer font-medium">Ler o registro completo da próxima ação</summary>
       <p className="whitespace-pre-wrap break-words">{u06.data.root.next_action_record}</p>
      </details>
     </>}
@@ -216,13 +217,13 @@ export default function NucleoAc02NucContextRead(){
     <NucleoIdentityContext moduleId={ID} frontId={null}/>
     <p className="text-xs text-muted-foreground">Mandato: {visibleResult.specialist.mandate} · Sucessor: {visibleResult.specialist.successor}. A consulta não herda autoridade e não cria vínculo de atuação.</p>
     <div className="flex flex-wrap gap-2">
-     <Button type="button" size="sm" variant="outline" onClick={()=>{const item=document.getElementById("nucleo-ac01-piloto");item?.scrollIntoView({block:"start"});item?.focus({preventScroll:true});}}>Consultar registro AC-01</Button>
+     <Button type="button" size="sm" variant="outline" onClick={()=>{const item=document.getElementById("nucleo-ac01-piloto");item?.scrollIntoView({block:"start"});item?.focus({preventScroll:true});}}>Consultar documentos e versões</Button>
      <Button type="button" size="sm" variant="outline" onClick={()=>{const item=document.getElementById("nucleo-ac02-quadro-decisao");item?.scrollIntoView({block:"start"});item?.focus({preventScroll:true});}}>Consultar continuidade e aprendizagem</Button>
     </div>
    </section>
    <section className="rounded-lg border p-3 space-y-3" aria-label="Painel de próximas ações das frentes NUC">
     <div className="space-y-1">
-     <h5 className="font-semibold text-sm">Próximas ações · consulta do Core</h5>
+     <h5 className="font-semibold text-sm">Próximas ações registradas</h5>
      <p className="text-xs text-muted-foreground">
       Selecione uma frente para ler sua próxima ação original. A seleção só organiza a consulta:
       não muda prioridade, responsável, estado ou permissão.
@@ -234,13 +235,13 @@ export default function NucleoAc02NucContextRead(){
       variant={focusedFront===front.code?"secondary":"outline"}
       aria-pressed={focusedFront===front.code}
       onClick={()=>setFocusedFront(front.code)}>
-      {front.code} · {front.status.replaceAll("_"," ")}
+      {humanWorkName(front.code,front.title)} · {humanNucleusState(front.status)}
      </Button>)}
     </div>
     {visibleResult.fronts.filter(front=>front.code===focusedFront).map(front=><article key={front.code}
       className="rounded-md border p-3 space-y-2 text-xs" aria-live="polite">
-     <h6 className="font-semibold text-sm">{front.code} · {front.title}</h6>
-     <p>Estado no Core: <strong>{front.status}</strong> · Evidência: {front.evidence_state} · Registros M4 visíveis: {front.evidence_count}</p>
+     <h6 className="font-semibold text-sm">{humanWorkName(front.code,front.title)}</h6>
+     <p>Estado no Core: <strong>{humanNucleusState(front.status)}</strong> · Evidência: {humanNucleusState(front.evidence_state)} · Evidências disponíveis: {front.evidence_count}</p>
      <p className="font-medium">Próxima ação registrada:</p>
      <p className="whitespace-pre-wrap break-words">{front.next_action||"Sem próxima ação informada."}</p>
      <Button type="button" size="sm" variant="outline" onClick={()=>{
@@ -255,8 +256,8 @@ export default function NucleoAc02NucContextRead(){
     </p>
    </section>
    <div className="space-y-2">{visibleResult.fronts.map(front=><div key={front.code} id={"nucleo-ac02-front-"+front.code} tabIndex={-1} className="scroll-mt-28 rounded-md border p-2 text-xs space-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-    <p className="font-semibold">{front.code} · {front.title}</p>
-    <p>Estado: {front.status} · Evidência: {front.evidence_state} · Provas M4 acessíveis: {front.evidence_count}</p>
+    <p className="font-semibold">{humanWorkName(front.code,front.title)}</p><p className="text-muted-foreground">Código: {front.code} · {front.title}</p>
+    <p>Situação: {humanNucleusState(front.status)} · Evidência: {humanNucleusState(front.evidence_state)} · Evidências disponíveis: {front.evidence_count}</p>
     <p>Próxima ação M3: {front.next_action}</p>
    </div>)}</div>
    <section id="nucleo-ac02-quadro-decisao" tabIndex={-1} className="scroll-mt-28 rounded-lg border p-3 space-y-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Quadro consultivo para preparar decisão documental">

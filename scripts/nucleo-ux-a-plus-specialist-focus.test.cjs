@@ -66,12 +66,12 @@ assert(ac02.includes('!isSafe(response.ac02_assumption_export)||!isRegistry(resp
 // UX-3: estados visíveis antes dos atalhos AC-01 e consulta AC-02.
 for(const token of [
  'Registro em andamento. Aguarde a conferência no Core antes de navegar ou repetir.',
- 'Minuta AC-01 não salva neste módulo.',
+ 'Rascunho de documento não salvo neste módulo.',
  'Resultado indeterminado. Reconsulte o Core e reconcilie a proposta',
  'role={uncertainRef.current?"alert":"status"}',
 ])assert(contributions.includes(token),"AC-01 status visual ausente: "+token);
 assert(contributions.indexOf('Resultado indeterminado. Reconsulte o Core')<contributions.indexOf('<nav aria-label="Ciclo documental AC-01'),"Alerta de reconciliação precisa anteceder navegação");
-assert(ac02.includes('Consultando contexto AC-02 no Core.'),"Consulta AC-02 precisa de status explícito");
+assert(ac02.includes('Consultando informações para continuidade.'),"Consulta AC-02 precisa de status explícito");
 assert(ac02.includes('{error&&<p role="alert"'),"Erro AC-02 permanece alerta");
 // AC-01: seleção de versão deve ser transacional para a minuta local.
 const selector=contributions.slice(contributions.indexOf(' const chooseReference=(id:string)=>{'),contributions.indexOf(' const parent=rows.find(item=>item.id===parentId);'));
