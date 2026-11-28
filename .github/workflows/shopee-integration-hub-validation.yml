@@ -210,6 +210,7 @@ jobs:
           psql "$DB_URL" -X -v ON_ERROR_STOP=1 -q -f "$GITHUB_WORKSPACE/supabase/migrations/20261016220000_shopee_shipping_document_idempotency.sql"
           psql "$DB_URL" -X -v ON_ERROR_STOP=1 -q -f "$GITHUB_WORKSPACE/supabase/migrations/20261020225826_shopee_minimum_cycle_state.sql"
           psql "$DB_URL" -X -v ON_ERROR_STOP=1 -q -v d11_real_auth=1 -f "$root/d11-policy-authoring-fixture.sql"
+          PGOPTIONS="-c d11.fixture_local=on" psql "$DB_URL" -X -v ON_ERROR_STOP=1 -q -f "$root/d11-local-commercial-fixture.sql"
           (cd "$tmp" && "$cli" migration new --help >/dev/null && "$cli" migration new d11_protected_cycle_policy)
           mapfile -t files < <(find "$tmp/supabase/migrations" -maxdepth 1 -name '*_d11_protected_cycle_policy.sql')
           test "${#files[@]}" -eq 1
@@ -217,7 +218,7 @@ jobs:
           {
             echo '-- D11 generated candidate; not approved for hosted publication.'
             echo 'BEGIN;'
-            for file in d11-policy-storage-schema.sql d11-policy-lease-schema.sql d11-policy-acquire-candidate.sql d11-preflight-lifecycle-candidate.sql d11-discovery-candidate.sql d11-observation-candidate.sql d11-policy-claim-candidate.sql d11-policy-authoring-candidate.sql; do
+            for file in d11-policy-storage-schema.sql d11-policy-lease-schema.sql d11-policy-acquire-candidate.sql d11-preflight-lifecycle-candidate.sql d11-discovery-candidate.sql d11-observation-candidate.sql d11-policy-claim-candidate.sql d11-intake-composition-candidate.sql d11-policy-authoring-candidate.sql; do
               printf '\n-- source: %s\n' "$file"
               cat "$root/$file"
             done

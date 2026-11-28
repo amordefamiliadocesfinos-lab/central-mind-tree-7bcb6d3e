@@ -63,10 +63,9 @@ for(const u of [a,b,c]){
 // PostgREST role checks, with synthetic Raw and no network to Shopee.
 const sn='D11SYNTHETIC1', pkg='PKG1', hash='a'.repeat(64);
 const detail={response:{order_list:[{order_sn:sn,create_time:Math.floor(Date.now()/1000)-120,
- order_status:'READY_TO_SHIP',split_up:false,package_list:[{package_number:pkg,logistics_status:'LOGISTICS_READY'}]}]}};
+ order_status:'READY_TO_SHIP',split_up:false,total_amount:20,payment_method:'Pix',message_to_seller:'fixture packing note',
+ item_list:[{item_id:123,model_id:456,model_quantity_purchased:2,model_discounted_price:10}],package_list:[{package_number:pkg,logistics_status:'LOGISTICS_READY'}]}]}};
 sql(`INSERT INTO public.shopee_cycle_orders(channel_account_id,order_sn) VALUES ('${account}','${sn}');
-INSERT INTO public.orders(id,channel_account_id,order_number,channel,sale_origin,deleted_at,status,operational_status)
- VALUES ('dddddddd-dddd-4ddd-8ddd-dddddddddddd','${account}','${sn}','shopee','shopee_open_platform',NULL,'pendente','todo');
 INSERT INTO public.marketplace_raw_snapshots(channel_account_id,source,environment,external_entity_type,endpoint,external_entity_id,payload,payload_hash,observed_at)
  VALUES ('${account}','shopee_open_platform','live','order','/api/v2/order/get_order_detail','${sn}','${JSON.stringify(detail)}','${hash}',clock_timestamp()-interval '1 minute');`);
 const effect=(name,args,token=service,key=service)=>request('/rest/v1/rpc/'+name,key,token,args);
@@ -81,6 +80,47 @@ for(const token of [anon,a.token,b.token,c.token])
  assert.ok((await effect('record_shopee_cycle_observation',record,token,anon)).status>=400);
 const rec=await effect('record_shopee_cycle_observation',record);
 assert.equal(rec.status,200);assert.equal(rec.data.status,'observation_recorded');
+// The same consolidated local schema now includes the transactional commercial
+// fence. The canonical order must come from the actual writer, not a preseed.
+const projection={channel_account_id:account,marketplace_account:'D11 synthetic A',order_number:sn,
+ order_date:new Date(detail.response.order_list[0].create_time*1000).toISOString().slice(0,10),
+ total_value:20,payment_method:'Pix',external_status:'READY_TO_SHIP',buyer_message:'fixture packing note',
+ items:[{product_id:'92088a70-8cc0-40ef-a39d-564603df6866',variant_id:null,quantity:6,commercial_quantity:2,
+ physical_multiplier:3,unit_price:10,item_id:'123',model_id:'456',mapping_id:'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',composition_position:0},
+ {product_id:'6f43ad65-74d5-4db9-b931-1ecd6d124987',variant_id:null,quantity:4,commercial_quantity:2,
+ physical_multiplier:2,unit_price:0,item_id:'123',model_id:'456',mapping_id:'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',composition_position:1}]};
+const intake={p_account:account,p_lease:lease.data.lease_id,p_revision:1,p_observation:rec.data.observation_id,p_projection:projection};
+assert.equal(sql("SELECT md5(pg_get_functiondef('public.create_shopee_api_order(jsonb,jsonb)'::regprocedure))"),'330a7966a1c0143d4b9fc82229bf9013');
+assert.equal(sql("SELECT prosecdef FROM pg_proc WHERE oid='public.commit_shopee_d11_intake(uuid,uuid,integer,uuid,jsonb)'::regprocedure"),'f');
+for(const token of [anon,a.token,b.token,c.token]){
+ assert.ok((await effect('commit_shopee_d11_intake',intake,token,anon)).status>=400);
+ assert.ok((await effect('create_shopee_api_order',{p_order:projection,p_items:projection.items},token,anon)).status>=400);
+}
+// Verify effective table boundaries and RPC privilege, independently of HTTP status.
+assert.equal(sql("SELECT count(*) FROM pg_class WHERE oid IN ('public.orders'::regclass,'public.order_items'::regclass,'public.order_separation'::regclass,'public.marketplace_product_mappings'::regclass,'public.marketplace_product_mapping_items'::regclass,'public.products'::regclass,'public.product_variants'::regclass,'public.commercial_presentations'::regclass) AND relrowsecurity"),'8');
+for(const role of ['anon','authenticated']){
+ assert.equal(sql("SELECT has_function_privilege('"+role+"','public.commit_shopee_d11_intake(uuid,uuid,integer,uuid,jsonb)','EXECUTE')"),'f');
+ assert.equal(sql("SELECT has_table_privilege('"+role+"','public.orders','INSERT') OR has_table_privilege('"+role+"','public.order_items','INSERT') OR has_table_privilege('"+role+"','public.order_separation','INSERT')"),'f');
+}
+assert.equal(sql("SELECT has_function_privilege('service_role','public.commit_shopee_d11_intake(uuid,uuid,integer,uuid,jsonb)','EXECUTE')"),'t');
+const before=()=>sql("SELECT count(*) FROM public.orders WHERE channel_account_id='"+account+"'");
+assert.equal(before(),'0');
+assert.equal((await effect('commit_shopee_d11_intake',{...intake,p_observation:crypto.randomUUID()})).data.status,'intake_observation_refused');
+const invalid={...projection,items:[{...projection.items[0],quantity:7},projection.items[1]]};
+assert.equal((await effect('commit_shopee_d11_intake',{...intake,p_projection:invalid})).data.status,'intake_composition_refused');
+assert.equal(before(),'0');
+const written=await effect('commit_shopee_d11_intake',intake);
+assert.equal(written.status,200);assert.equal(written.data?.status,'intake_written');
+assert.equal(written.data.observation_id,rec.data.observation_id);
+const oid=written.data.order_id;
+assert.match(oid,/^[0-9a-f-]{36}$/);assert.match(written.data.separation_id,/^[0-9a-f-]{36}$/);
+assert.equal(before(),'1');
+assert.equal(sql("SELECT count(*)||':'||sum(quantity)||':'||round(sum(quantity*unit_price),2) FROM public.order_items WHERE order_id='"+oid+"'"),'2:10:20.00');
+assert.equal(sql("SELECT marketplace_metadata->>'buyer_message' FROM public.orders WHERE id='"+oid+"'"),'fixture packing note');
+assert.equal(sql("SELECT count(*) FROM public.order_separation WHERE order_id='"+oid+"' AND separation_status='todo'"),'1');
+assert.equal((await effect('commit_shopee_d11_intake',intake)).data.status,'intake_existing_requires_reconciliation');
+assert.equal(before(),'1');
+console.log('PASS local consolidated commercial intake RPC: actual JWT refusal, exact receipt, composition, existing writer, one order and separation, replay denial');
 const fence={p_channel_account_id:account,p_lease_id:lease.data.lease_id,p_revision:1,p_action:'ship',
  p_shop_id:123,p_order_sn:sn,p_package_number:pkg,p_request_hash:'b'.repeat(64),p_observation_id:rec.data.observation_id};
 assert.ok((await effect('claim_shopee_cycle_effect',fence,a.token,anon)).status>=400);
@@ -93,6 +133,8 @@ const pause={...payload,p_expected_revision:1,p_request:crypto.randomUUID(),p_op
 assert.equal((await rpc(a.token,anon,pause)).data.status,'recorded');
 assert.equal(sql("SELECT enabled::text||':'||paused::text FROM public.shopee_cycle_policy_revisions ORDER BY revision DESC LIMIT 1"),'false:true');
 assert.equal((await effect('claim_shopee_cycle_effect',fence)).data.status,'policy_admission_refused');
+assert.equal((await effect('commit_shopee_d11_intake',intake)).data.status,'intake_scope_refused');
+assert.equal(before(),'1');
 assert.equal(sql('SELECT count(*) FROM public.shopee_shipping_arrangement_attempts'),'1');
 console.log('PASS local consolidated observation/claim RPC: service-only, exact receipt, duplicate and pause denial');
 sql(`UPDATE public.app_admin_capabilities SET active=false,revoked_at=now() WHERE auth_user_id='${a.id}' AND capability='shopee_manage_cycle_policy';`);
