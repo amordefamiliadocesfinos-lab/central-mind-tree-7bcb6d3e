@@ -115,7 +115,8 @@ BEGIN
  IF oid IS NULL OR sep IS NULL OR x->>'already_registered' IS DISTINCT FROM 'false'
   OR NOT EXISTS(SELECT 1 FROM public.orders WHERE id=oid AND channel_account_id=p_account AND order_number=sn
    AND channel='shopee' AND sale_origin='shopee_open_platform' AND deleted_at IS NULL AND status='pendente'
-   AND operational_status='todo' AND total_value=requested_total)
+   AND operational_status='todo' AND total_value=requested_total
+   AND nullif(btrim(marketplace_metadata->>'buyer_message'),'') IS NOT DISTINCT FROM left(nullif(btrim(o->>'message_to_seller'),''),4000))
   OR NOT EXISTS(SELECT 1 FROM public.order_separation WHERE id=sep AND order_id=oid AND separation_status='todo')
   OR EXISTS(
    (SELECT product_id,variant_id,quantity,unit_price FROM public.order_items WHERE order_id=oid
