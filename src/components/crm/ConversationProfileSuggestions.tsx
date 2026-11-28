@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import {
   proposeCrmConversationProfileFields,
   type CrmConversationProfileMessage,
+  CRM_CONVERSATION_MESSAGE_TEXT_LIMIT,
   type CrmConversationProfileField,
   type CrmConversationProfileSuggestion,
 } from '@/lib/crm/conversationProfileSuggestions';
@@ -38,6 +39,7 @@ export function ConversationProfileSuggestions({
   const [loading, setLoading] = useState(false);
   const [scannedCount, setScannedCount] = useState(0);
   const [scanLimitReached, setScanLimitReached] = useState(false);
+  const [oversizedMessageCount, setOversizedMessageCount] = useState(0);
   const [analyzedLatestMessageId, setAnalyzedLatestMessageId] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<CrmConversationProfileSuggestion[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -58,6 +60,7 @@ export function ConversationProfileSuggestions({
     setSelectedFields([]);
     setScannedCount(0);
     setScanLimitReached(false);
+    setOversizedMessageCount(0);
     setAnalyzedLatestMessageId(null);
     analyzedHistoryRef.current = null;
     setError(null);
@@ -71,6 +74,7 @@ export function ConversationProfileSuggestions({
     setSuggestions(null);
     setScannedCount(0);
     setScanLimitReached(false);
+    setOversizedMessageCount(0);
     setAnalyzedLatestMessageId(null);
     analyzedHistoryRef.current = null;
     setError(null);
@@ -108,6 +112,7 @@ export function ConversationProfileSuggestions({
       if (!isCurrentRequest()) return;
       analyzedHistoryRef.current = JSON.stringify(collected);
       setScannedCount(collected.length);
+      setOversizedMessageCount(collected.filter(message => (message.content?.length ?? 0) > CRM_CONVERSATION_MESSAGE_TEXT_LIMIT).length);
       setAnalyzedLatestMessageId(collected[0]?.id ?? null);
       setScanLimitReached(collected.length >= CRM_CONVERSATION_REVIEW_LIMIT);
       setSuggestions(proposeCrmConversationProfileFields(collected, contact));
@@ -119,7 +124,7 @@ export function ConversationProfileSuggestions({
   };
 
   const confirmSelected = async () => {
-    if (saveRef.current || loading || scanLimitReached || !analyzedHistoryRef.current || !analyzedLatestMessageId || !conversationId || !suggestions || !selectedFields.length || editing) return;
+    if (saveRef.current || loading || scanLimitReached || oversizedMessageCount > 0 || !analyzedHistoryRef.current || !analyzedLatestMessageId || !conversationId || !suggestions || !selectedFields.length || editing) return;
     const accepted = suggestions.filter(item => selectedFields.includes(item.field) && item.state === 'empty');
     if (!accepted.length || accepted.length !== selectedFields.length) return;
     const patch: Partial<Contact> = {};
@@ -214,7 +219,7 @@ export function ConversationProfileSuggestions({
           <label className="flex items-start gap-2">
             <input type="checkbox" className="mt-0.5" aria-label={`Selecionar ${labels[item.field]}`}
               checked={selectedFields.includes(item.field)}
-              disabled={item.state !== 'empty' || scanLimitReached || editing || saving}
+              disabled={item.state !== 'empty' || scanLimitReached || oversizedMessageCount > 0 || editing || saving}
               onChange={event => setSelectedFields(current => event.target.checked
                 ? [...current, item.field] : current.filter(field => field !== item.field))} />
             <span className="font-semibold">{labels[item.field]}: {item.value}</span>
@@ -233,6 +238,11 @@ export function ConversationProfileSuggestions({
           </p>
         </div>
       ))}
+      {oversizedMessageCount > 0 && suggestions !== null && (
+        <p role="status" className="text-xs text-amber-700 dark:text-amber-300">
+          {oversizedMessageCount} mensagem(ns) ultrapassam {CRM_CONVERSATION_MESSAGE_TEXT_LIMIT} caracteres; análise integral indisponível e preenchimento bloqueado.
+        </p>
+      )}
       {scanLimitReached && suggestions !== null && (
         <p role="status" className="text-xs text-amber-700 dark:text-amber-300">
           Histórico parcialmente examinado: preenchimento automático bloqueado para evitar conflito com mensagens não consultadas.
@@ -240,7 +250,7 @@ export function ConversationProfileSuggestions({
       )}
       {suggestions && suggestions.length > 0 && (
         <div className="space-y-1.5">
-          <Button type="button" size="sm" disabled={saving || scanLimitReached || !selectedFields.length || editing}
+          <Button type="button" size="sm" disabled={saving || scanLimitReached || oversizedMessageCount > 0 || !selectedFields.length || editing}
             onClick={() => void confirmSelected()}>
             {saving ? 'Confirmando campos...' : `Confirmar e preencher ${selectedFields.length} campo(s) vazio(s)`}
           </Button>
