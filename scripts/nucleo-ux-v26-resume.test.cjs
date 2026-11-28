@@ -62,7 +62,7 @@ console.log("UX V2.6: simple entry, truthful resume, progressive Atlas and contr
 
 /* P6 H03-R/H08-R: identity-based deduplication and route-local docking. */
 assert(s.includes('resumeItem.id===crmAttention.id'),"Deduplicate by stable ID, not by label");
-assert(s.includes('resumeIsCrmAttention')&&s.includes('A próxima ação e o registro integral estão no cartão acima.'),"Same action is presented only in CRM card");
+assert(s.includes('resumeIsCrmAttention')&&s.includes('A próxima ação e o registro integral estão em De onde continuar.'),"Same action is presented only in resume card");
 assert(s.includes('<OverviewAction value={crmAttention.next_action||""}/>')&&s.includes('<OverviewAction value={resumeItem.next_action?.trim()||""}/>'),"Reuse literal excerpt for distinct fronts");
 assert(s.includes('const excerpt=explicitNextActionExcerpt(value)')&&s.includes('Registro integral e ressalvas')&&s.includes('{value}</p>'),"Keep complete original and limitations");
 assert(s.includes('Ver o que mudou')&&s.includes('resumeCheckpointSummary.changes.slice(0,2)'),"Historical text remains expandable");
@@ -72,3 +72,9 @@ assert(globalSearch.includes('style={dockedInNucleo ? undefined : {')&&globalSea
 assert(globalSearch.includes('!dockedInNucleo && <div')&&globalSearch.includes('fixed z-50 transition-[width]'),"Dragging elsewhere unchanged");
 assert(globalSearch.includes('const POSITION_KEY = "pc.searchbar.position"')&&globalSearch.includes('getCrmRouteBlockReason()')&&globalSearch.includes('e.key === "/"'),"Position, navigation protection and shortcut retained");
 assert(globalSearch.includes('if (isMobile) return null;'),"Existing mobile policy unchanged");
+
+// LH03 residual: resume and attention before shortcuts, no history truncation presented as a current action.
+assert(s.indexOf('aria-label="De onde continuar"')<s.indexOf('aria-label="Acesso direto ao acompanhamento CRM"'),"Resume first; retain CRM shortcut");
+assert(s.includes('resumeIsCrmAttention?<p')&&s.includes('em De onde continuar.'),"Deduplicate by identity with clear destination");
+assert(s.includes('const shortOriginal=!excerpt&&original.length<=220')&&s.includes('const visibleExcerpt=excerpt&&excerpt.length<=480?excerpt:null'),"Long or ambiguous action not promoted to summary");
+assert(s.includes('Consulte o registro completo para conferir a próxima ação e suas condições.')&&s.includes('{original&&(!shortOriginal||excerpt)&&<details'),"Original retained on demand");
