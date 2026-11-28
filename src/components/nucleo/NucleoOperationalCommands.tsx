@@ -18,7 +18,7 @@ export default function NucleoOperationalCommands() {
   async function copy(id: string, body: string, short = false) {
     try {
       await navigator.clipboard.writeText(body);
-      setFeedback(previous => ({ ...previous, [id]: { ok: true, message: short ? "Chamada curta copiada." : "Comando copiado integralmente." } }));
+      setFeedback(previous => ({ ...previous, [id]: { ok: true, message: short ? "Chamada copiada." : "Comando integral copiado." } }));
     } catch {
       reveal(id);
       setFeedback(previous => ({ ...previous, [id]: { ok: false, message: short ? "Selecione a chamada curta nos detalhes e copie manualmente." : "Selecione o texto integral nos detalhes e copie manualmente." } }));
@@ -67,7 +67,10 @@ export default function NucleoOperationalCommands() {
               <p className="text-sm text-slate-600">{entry.purpose}</p>
               <div className="flex flex-wrap items-center gap-2">
               {pending ? <p className="flex items-center gap-2 text-xs text-slate-600"><Clock className="h-4 w-4" aria-hidden="true" /> {entry.catalogState === "candidate" ? "Evidência em revisão" : "Fonte em recuperação"} · cópia indisponível</p> : (
-                <Button type="button" className="min-h-10 flex-1 gap-2 bg-blue-700 text-white hover:bg-blue-800" onClick={() => void copy(entry.id, operationalCommandInvocation(entry.code), true)}><Copy className="h-4 w-4" aria-hidden="true" /> Copiar chamada</Button>
+                <div className="flex w-full flex-wrap gap-2">
+                  <Button type="button" className="min-h-10 min-w-0 flex-1 basis-36 h-auto whitespace-normal gap-2 bg-blue-700 px-2 py-2 text-white hover:bg-blue-800" onClick={() => void copy(entry.id, operationalCommandInvocation(entry.code), true)}><Copy className="h-4 w-4 shrink-0" aria-hidden="true" /> Copiar chamada</Button>
+                  <Button type="button" variant="outline" className="min-h-10 min-w-0 flex-1 basis-36 h-auto whitespace-normal gap-2 border-slate-200 bg-white px-2 py-2 text-slate-700" onClick={() => void copy(entry.id, entry.body!)}><Copy className="h-4 w-4 shrink-0" aria-hidden="true" /> Copiar comando integral</Button>
+                </div>
               )}
               <Button type="button" variant="ghost" size="sm" className="min-h-10 gap-1 text-slate-700" aria-expanded={open} aria-controls={`command-${entry.id}`} onClick={() => setExpanded(previous => open ? previous.filter(id => id !== entry.id) : [...previous, entry.id])}>{open ? "Recolher detalhes" : "Detalhes"}<ChevronDown className={open ? "h-4 w-4 rotate-180" : "h-4 w-4"} aria-hidden="true" /></Button>
               </div>
@@ -79,7 +82,6 @@ export default function NucleoOperationalCommands() {
                 {!pending && entry.body !== null && <>
                   <p className="select-text break-words rounded-md bg-slate-50 p-2 text-xs text-slate-800">{operationalCommandInvocation(entry.code)}</p>
                   <pre tabIndex={0} className="select-text whitespace-pre-wrap break-words rounded-md bg-slate-50 p-3 font-sans text-sm text-slate-800">{entry.body}</pre>
-                  <Button type="button" variant="outline" className="min-h-11 w-full gap-2 border-slate-200 bg-white text-slate-700" onClick={() => void copy(entry.id, entry.body!)}><Copy className="h-4 w-4" aria-hidden="true" /> Copiar comando integral</Button>
                 </>}
               </div>
             </article>
