@@ -114,3 +114,31 @@ export function createD11RecurringRound({enabled=false,intakeCommitEnabled=false
   }
  };
 }
+
+// One shared private scheduler entry; the caller cannot choose account/order.
+// Core chooses the next admitted idle account and its persisted turn.
+const competingFlags=['SHOPEE_D10_ENABLED','SHOPEE_LIVE_COMMIT_ENABLED','SHOPEE_LIVE_AUTO_COMMIT_ENABLED',
+ 'SHOPEE_LIVE_CYCLE_ENABLED','SHOPEE_LIVE_SHIP_ORDER_ENABLED','SHOPEE_LIVE_SHIP_ORDER_ROUTE_ENABLED',
+ 'SHOPEE_LIVE_LABEL_SYNC_ENABLED','SHOPEE_LIVE_LABEL_CREATE_ENABLED','SHOPEE_LIVE_OAUTH_REFRESH_ENABLED',
+ 'SHOPEE_ADAO_AUTO_INTAKE_ENABLED','SHOPEE_ADAO_CYCLE_ENABLED','SHOPEE_ADAO_AUTO_SHIP_ENABLED',
+ 'SHOPEE_ADAO_LABEL_SYNC_ENABLED','SHOPEE_CELIVIO_C6_RAW_ONCE_ENABLED','SHOPEE_CELIVIO_C7_LABEL_SYNC_ENABLED',
+ 'SHOPEE_CELIVIO_NEW_PILOT_RAW_ENABLED','SHOPEE_CELIVIO_NEW_PILOT_COMMIT_ENABLED',
+ 'SHOPEE_CELIVIO_NEW_PILOT_SHIP_ENABLED','SHOPEE_CELIVIO_NEW_PILOT_LABEL_ENABLED'];
+export function createD11ScheduledCycle({getEnv=k=>process.env[k],call,now=Date.now,
+ adapters=createD11BridgeAdapters({enabled:getEnv('SHOPEE_D11_RECURRING_ENABLED')==='true',call}),
+ round=createD11RecurringRound({enabled:getEnv('SHOPEE_D11_RECURRING_ENABLED')==='true',
+  intakeCommitEnabled:getEnv('SHOPEE_D11_INTAKE_ENABLED')==='true',getEnv,now,call,adapters})}={}){
+ return async function cycle(){
+  if(getEnv('SHOPEE_D11_RECURRING_ENABLED')!=='true')return result(false,'d11_cycle_disabled');
+  if(competingFlags.some(k=>String(getEnv(k)??'').trim().toLowerCase()==='true'))
+   return result(false,'d11_competing_writer_enabled');
+  try{
+   const p=await adapters.selectAccount();
+   if(p?.status==='no_admitted_account')return result(true,'d11_no_admitted_account');
+   if(p?.status!=='selected'||!id(p.accountId)||legacy.has(p.accountId.toLowerCase())||typeof p.discoveryTurn!=='boolean')
+    return result(false,'d11_account_selection_unconfirmed');
+   const r=await round({accountId:p.accountId,discoveryTurn:p.discoveryTurn});
+   return {...r,accountId:p.accountId};
+  }catch{return result(false,'d11_cycle_unconfirmed',{reconciliationRequired:true});}
+ };
+}
