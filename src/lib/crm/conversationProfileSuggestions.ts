@@ -18,6 +18,8 @@ export interface CrmConversationProfileSuggestion {
   messageId: string;
   createdAt: string;
   evidenceExcerpt: string;
+  /** Number of distinct values encountered for this field. */
+  distinctValues: number;
   state: 'empty' | 'same' | 'conflict' | 'ambiguous' | 'unverified';
   /** All candidates are advisory, never automatically persisted. */
   requiresReview: true;
@@ -130,6 +132,7 @@ export function proposeCrmConversationProfileFields(
     proposals.push({
       field, value: latest.value, messageId: latest.id, createdAt: latest.date,
       evidenceExcerpt: latest.excerpt,
+      distinctValues: new Set(entries.map(entry => comparable(field, entry.value))).size,
       state, requiresReview: true,
     });
   }
@@ -143,7 +146,9 @@ export function proposeCrmConversationProfileFields(
     const latest = ordered[ordered.length - 1];
     proposals.push({
       field, value: latest.value, messageId: latest.id, createdAt: latest.date,
-      evidenceExcerpt: latest.excerpt, state: 'unverified', requiresReview: true,
+      evidenceExcerpt: latest.excerpt,
+      distinctValues: new Set(entries.map(entry => comparable(field, entry.value))).size,
+      state: 'unverified', requiresReview: true,
     });
   }
   return proposals;
