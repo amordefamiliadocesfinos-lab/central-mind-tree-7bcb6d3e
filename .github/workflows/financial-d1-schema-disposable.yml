@@ -9,6 +9,7 @@ on:
       - 'supabase/tests/fin_d1_rectification_writer_disposable.sql'
       - 'supabase/tests/fin_d1_account_projection_disposable.sql'
       - 'supabase/tests/fin_d1_cross_writer_concurrency_disposable.sh'
+      - 'supabase/tests/fin_d1_legacy_coexistence_disposable.sql'
       - 'docs/architecture/proposals/FIN_D1_ACCOUNT_PROJECTION_NAO_APLICAR.sql'
       - 'docs/architecture/proposals/FIN_D1_RECTIFICATION_WRITER_NAO_APLICAR.sql'
       - 'docs/architecture/proposals/FIN_D1_WRITER_CANDIDATE_NAO_APLICAR.sql'
@@ -61,3 +62,8 @@ jobs:
           PGPASSWORD: localtest
           PGDATABASE: fin_d1_disposable
         run: bash supabase/tests/fin_d1_cross_writer_concurrency_disposable.sh
+
+      - name: Legacy coexistence negative probes (activation blockers)
+        env:
+          PGPASSWORD: localtest
+        run: psql -X -h localhost -U postgres -d fin_d1_disposable -v ON_ERROR_STOP=1 -f supabase/tests/fin_d1_legacy_coexistence_disposable.sql
