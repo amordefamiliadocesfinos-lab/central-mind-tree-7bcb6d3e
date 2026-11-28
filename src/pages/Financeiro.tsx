@@ -159,7 +159,7 @@ export default function Financeiro() {
           <Select value={filters.marketplaceAccount || 'all'} onValueChange={v => applyGlobalFilter({ marketplaceAccount: v === 'all' ? undefined : v })}><SelectTrigger className="w-[190px]"><SelectValue placeholder="Todas as lojas" /></SelectTrigger><SelectContent><SelectItem value="all">Todas as contas do canal</SelectItem>{channelAccounts.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent></Select>
 
           <Button variant="outline" size="sm" onClick={() => setIntegrityOpen(true)} className="ml-auto">Revisar integrações</Button>
-          <Button variant="outline" size="sm" onClick={() => setReviewImportedOpen(true)}>Revisar importados</Button>
+          <Button variant="outline" size="sm" onClick={() => setReviewImportedOpen(true)}>Revisar sem categoria</Button>
           <Button variant="outline" size="sm" onClick={() => setImporterOpen(true)} className="gap-2">
             <Upload className="h-4 w-4" /> Importar Extrato
           </Button>

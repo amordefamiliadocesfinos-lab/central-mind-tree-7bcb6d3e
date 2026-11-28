@@ -24,6 +24,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: node --experimental-strip-types --test src/lib/financial/integrityDiagnostics.test.ts src/lib/financial/adjustedSettlementCandidate.test.ts src/lib/financial/realizedCash.test.ts src/lib/invoiceSync.test.ts src/lib/financial/d1ConsumerCompatibilityCandidate.test.ts
+      - run: node --experimental-strip-types --test src/lib/financial/integrityDiagnostics.test.ts src/lib/financial/adjustedSettlementCandidate.test.ts src/lib/financial/realizedCash.test.ts src/lib/invoiceSync.test.ts src/lib/financial/d1ConsumerCompatibilityCandidate.test.ts src/lib/financial/categorySuggestion.test.ts
       - run: npx tsc --noEmit -p tsconfig.app.json
       - run: npm run build
