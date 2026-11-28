@@ -524,7 +524,7 @@ test('U4-B closeout: classify filled, ignored and pending using canonical return
     name: 'Ana Teste', email: 'ja@example.com', zip_code: '88220000',
   });
   assert.deepEqual(report.filled, ['name']);
-  assert.deepEqual(report.ignored, ['zip_code']);
+  assert.deepEqual(report.ignored, ['zip_code', 'city']);
   assert.deepEqual(report.pending, ['email']);
   // Cidade vazia e não escolhida foi intencionalmente ignorada.
   assert.ok(report.ignored.includes('city'));
