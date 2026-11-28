@@ -8,6 +8,7 @@ import { CRM_CANONICAL_RESULTS } from '@/lib/crm/canonical/results';
 import type { CrmResultCode } from '@/lib/crm/canonical/types';
 import { getTaskContextResultCodes, getTaskContextQuickResultCodes } from '@/lib/crm/taskResultContext';
 import { getCrmResultScheduledFor, type CrmResultSelectionOrigin } from '@/lib/crm/resultRegistrationPresentation';
+import { getResultConfirmationContext } from '@/lib/crm/resultConfirmationContext';
 
 interface Props {
   busy?: boolean;
@@ -37,6 +38,7 @@ export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSno
   const currentContextKeyRef = useRef(contextKey);
   currentContextKeyRef.current = contextKey;
   const selectedResult = CRM_CANONICAL_RESULTS.find(result => result.code === resultCode);
+  const confirmationContext = resultCode ? getResultConfirmationContext(resultCode, taskContextTitle) : null;
   const needsReturnDate = resultCode === 'CRM-RES-022';
   const contextualCodes = getTaskContextResultCodes(taskContextTitle);
   const contextualCodeSet = new Set(contextualCodes);
@@ -177,7 +179,13 @@ export function AttendanceActionBar({ busy = false, contextKey, onOutcome, onSno
           {selectedResult && (
             <div className="rounded-md border px-2 py-1.5 text-[11px]">
               <strong>Você está confirmando: {selectedResult.label}.</strong> {selectedResult.description}
-              <p className="mt-1 text-muted-foreground">Confira se isso realmente ocorreu na conversa. O CRM só atualizará o atendimento depois de confirmar o registro.</p>
+              {confirmationContext && (
+                <div className="mt-2 space-y-1.5" aria-label="Contexto antes de confirmar Resultado">
+                  <p><strong>Fato a conferir:</strong> {confirmationContext.evidence}</p>
+                  <p><strong>Consequência:</strong> {confirmationContext.consequence}</p>
+                  <p className="text-amber-700 dark:text-amber-300"><strong>Atenção:</strong> {confirmationContext.warning}</p>
+                </div>
+              )}
             </div>
           )}
           {(needsReturnDate || date) && (

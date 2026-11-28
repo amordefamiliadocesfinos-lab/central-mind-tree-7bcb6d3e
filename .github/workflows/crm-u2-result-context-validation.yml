@@ -1,0 +1,26 @@
+name: CRM U2 Result Confirmation Context
+on:
+  pull_request:
+    paths:
+      - 'src/components/crm/AttendanceActionBar.tsx'
+      - 'src/lib/crm/resultConfirmationContext.ts'
+      - 'src/lib/crm/resultConfirmationContext.test.ts'
+      - '.github/workflows/crm-u2-result-context-validation.yml'
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: CRM U2 contextual pre-confirmation tests
+        run: |
+          npx esbuild src/lib/crm/resultConfirmationContext.test.ts --bundle --platform=node --format=esm --alias:@=./src --outfile=/tmp/crm-u2-result-context-tests.mjs
+          node /tmp/crm-u2-result-context-tests.mjs
+      - name: Build
+        run: npm run build
