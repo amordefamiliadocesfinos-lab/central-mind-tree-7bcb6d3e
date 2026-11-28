@@ -76,4 +76,4 @@ jobs:
           export_file=$(mktemp)
           trap 'rm -f "$export_file"' EXIT
           psql -X -h localhost -U postgres -d fin_d1_disposable -v ON_ERROR_STOP=1 -At -f supabase/tests/fin_d1_consumer_export_disposable.sql > "$export_file"
-          node --experimental-strip-types src/lib/financial/d1SqlConsumerContract.disposable.ts "$export_file"
+          FIN_D1_EXPORT_FILE="$export_file" node --experimental-strip-types src/lib/financial/d1SqlConsumerContract.disposable.ts
