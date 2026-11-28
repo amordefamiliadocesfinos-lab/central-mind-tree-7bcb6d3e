@@ -345,3 +345,23 @@ test('B12 does not convert a denied labelled field into an unverified text hint'
   ], {});
   assert.equal(result.length, 0);
 });
+
+test('B13 later denial invalidates earlier explicit email and CEP evidence', () => {
+  const result = proposeCrmConversationProfileFields([
+    msg('original', 'customer', 'Meu e-mail é cliente@example.com' + String.fromCharCode(10) + 'CEP: 88220-000', '2026-11-27T12:00:00Z'),
+    msg('revoked', 'customer', 'E-mail: cliente@example.com não é meu' + String.fromCharCode(10) + 'CEP: 88220-000, desconsiderar', '2026-11-27T13:00:00Z'),
+  ], {});
+  assert.equal(result.find(item => item.field === 'email')?.state, 'ambiguous');
+  assert.equal(result.find(item => item.field === 'zip_code')?.state, 'ambiguous');
+  assert.ok(result.every(item => item.requiresReview));
+});
+
+test('B13 unrelated denied value does not suppress valid labelled evidence', () => {
+  const result = proposeCrmConversationProfileFields([
+    msg('original', 'customer', 'Meu e-mail é cliente@example.com'),
+    msg('third', 'customer', 'E-mail: terceiro@example.com é do meu pai', '2026-11-27T13:00:00Z'),
+  ], {});
+  assert.equal(result.length, 1);
+  assert.equal(result[0].state, 'empty');
+  assert.equal(result[0].value, 'cliente@example.com');
+});
