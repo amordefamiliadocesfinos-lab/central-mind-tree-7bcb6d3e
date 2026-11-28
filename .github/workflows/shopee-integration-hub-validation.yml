@@ -127,6 +127,8 @@ jobs:
           export PGDATABASE=p4_shopee_writer_disposable
           sed '/^CREATE ROLE /d' supabase/tests/p4_shopee_writer_fixture_disposable.sql | psql -X -v ON_ERROR_STOP=1
           psql -X -v ON_ERROR_STOP=1 -f services/integration-hub/tests/sql/d11-intake-composition-prototype.sql
+          psql -X -v ON_ERROR_STOP=1 -f services/integration-hub/tests/sql/d11-intake-composition-fixture.sql
+          node services/integration-hub/tests/sql/check-d11-intake-concurrency.mjs
 
       - name: D11 authenticated policy authoring and concurrent pause versus claim (disposable)
         run: |
