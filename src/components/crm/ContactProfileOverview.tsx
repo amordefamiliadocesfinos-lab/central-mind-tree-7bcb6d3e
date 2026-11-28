@@ -9,6 +9,7 @@ import { PlatformHierarchicalPicker } from '@/components/digital/PlatformHierarc
 import { PROFILE_EDITABLE_KEYS } from '@/lib/crm/contactEditContract';
 import { saveContactProfile, updateContactCommercialOptOut, updateContactOfficialNextAction, updateContactActiveState } from '@/lib/crm/contactProfileWriter';
 import { ContactProfileMediaImport } from '@/components/crm/ContactProfileMediaImport';
+import { ConversationProfileSuggestions } from '@/components/crm/ConversationProfileSuggestions';
 import { Link } from 'react-router-dom';
 import { ContactTasksPanel } from '@/components/crm/ContactTasksPanel';
 import { format } from 'date-fns';
@@ -149,6 +150,7 @@ export function ContactProfileOverview({ contact, onSaved, onEditingChange, conv
   const [actionTitle, setActionTitle] = useState('');
   const [actionWhen, setActionWhen] = useState('');
   const [mediaBusy, setMediaBusy] = useState(false);
+  const [suggestionReviewActive, setSuggestionReviewActive] = useState(false);
   const [confirmActive, setConfirmActive] = useState(false);
   const baselineRef = useRef<Contact | null>(contact);
   const draftRef = useRef<Partial<Contact>>({});
@@ -175,8 +177,8 @@ export function ContactProfileOverview({ contact, onSaved, onEditingChange, conv
   }, [contact?.id]);
 
   useEffect(() => {
-    onEditingChange?.(activeEdit !== null || mediaBusy);
-  }, [activeEdit, mediaBusy, onEditingChange]);
+    onEditingChange?.(activeEdit !== null || mediaBusy || suggestionReviewActive);
+  }, [activeEdit, mediaBusy, suggestionReviewActive, onEditingChange]);
 
   useEffect(() => () => {
     Object.values(pendingRef.current).forEach(clearTimeout);
@@ -426,6 +428,16 @@ export function ContactProfileOverview({ contact, onSaved, onEditingChange, conv
           </div>
         </div>
       )}
+      <ConversationProfileSuggestions key={`${contact.id}|${conversationId ?? ''}`}
+        contact={contact} conversationId={conversationId}
+        editing={activeEdit !== null || mediaBusy || savingCount > 0}
+        onReviewChange={setSuggestionReviewActive}
+        onSaved={updated => {
+          baselineRef.current = updated;
+          draftRef.current = { ...updated };
+          setDraft(draftRef.current);
+          onSavedRef.current?.(updated);
+        }} />
       {SECTIONS.map((section, index) => (
         <Collapsible key={contact.id + '-' + section.key} defaultOpen={index === 0} className="rounded-lg border">
           <div className="flex items-center gap-1 pr-2">
