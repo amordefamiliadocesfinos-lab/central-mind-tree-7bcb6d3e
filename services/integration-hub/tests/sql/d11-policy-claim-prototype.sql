@@ -107,7 +107,8 @@ BEGIN
  EXCEPTION WHEN OTHERS THEN
    IF SQLERRM<>'d11_attempt_binding_immutable' THEN RAISE; END IF;
  END;
- ASSERT public.resolve_shopee_shipping_arrangement(attempt,repeat('a',64),'uncertain')->>'state'='uncertain';
+ ASSERT public.resolve_shopee_d11_effect(a,l,1,old_obs,'ship',attempt,repeat('a',64),'uncertain')->>'status'='effect_binding_refused';
+ ASSERT public.resolve_shopee_d11_effect(a,l,1,obs,'ship',attempt,repeat('a',64),'uncertain')->>'state'='uncertain';
  ASSERT EXISTS(SELECT 1 FROM public.shopee_shipping_arrangement_attempts WHERE id=attempt AND d11_observation_id=obs AND state='uncertain');
  ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG1',repeat('a',64),obs)->>'status'='uncertain_requires_reconciliation';
  ASSERT public.claim_shopee_cycle_effect(a,l,1,'ship',123,'D11SYNTHETIC1','PKG1',repeat('c',64),obs)->>'status'='claim_fingerprint_mismatch';
@@ -204,7 +205,10 @@ BEGIN
  SELECT id INTO d FROM public.shopee_shipping_document_attempts WHERE channel_account_id=a;
  ASSERT public.claim_shopee_cycle_effect(a,l,1,'label',123,'D11SYNTHETIC1','PKG1',repeat('b',64),obs)->>'status'='policy_admission_refused';
  -- Resolve existing committed attempt without issuing a new claim.
- ASSERT public.resolve_shopee_shipping_document(d,repeat('b',64),'succeeded')->>'state'='succeeded';
+ ASSERT public.resolve_shopee_d11_effect(a,l,2,obs,'label',d,repeat('b',64),'succeeded')->>'status'='effect_binding_refused';
+ ASSERT public.resolve_shopee_d11_effect(a,l,1,obs,'label',d,repeat('b',64),'succeeded')->>'state'='succeeded';
+ ASSERT public.resolve_shopee_d11_effect(a,l,1,obs,'label',d,repeat('b',64),'uncertain')->>'status'='transition_forbidden';
+ ASSERT NOT has_function_privilege('authenticated','public.resolve_shopee_d11_effect(uuid,uuid,integer,uuid,text,uuid,text,text)','EXECUTE');
  ASSERT public.finish_shopee_cycle(a,l,null,'D11SYNTHETIC1','blocked','policy_paused')->>'status'='finished';
  ASSERT (SELECT count(*) FROM public.shopee_shipping_document_attempts WHERE channel_account_id=a)=1;
 END $$;
