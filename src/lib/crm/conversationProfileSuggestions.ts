@@ -88,9 +88,20 @@ export function proposeCrmConversationProfileFields(
     if (thirdPartyHeader) continue;
     // Linhas citadas, encaminhadas ou rotuladas como dados de terceiro não provam
     // titularidade. São evidências para revisão humana, nunca cadastro automático.
+    let quotedReplyBlock = false;
     const lines = body.split(/\r?\n/).filter(line => {
       const trimmed = line.trim();
-      return !/^(?:>|"|encaminhad[ao]|dados (?:d[ao]|de) (?:cliente|terceiro|mãe|pai|esposa|marido|amigo)|endereço (?:de entrega|da minha mãe|do meu pai))\b/i.test(trimmed);
+      // U4-B17: a resposta do cliente pode incluir histórico citado abaixo de
+      // "Em ... escreveu:" / "On ... wrote:"; não atribuir esse bloco ao titular.
+      if (/^(?:em\s+.+\s+escreveu\s*:|on\s+.+\s+wrote\s*:|-{2,}\s*(?:mensagem original|original message)\s*-{2,})$/i.test(trimmed)) {
+        quotedReplyBlock = true;
+        return false;
+      }
+      if (quotedReplyBlock) return false;
+      // Marcadores > e aspas são não-palavra; a checagem anterior com \b
+      // não excluía essas linhas de maneira confiável.
+      if (/^(?:>|["“”])/.test(trimmed)) return false;
+      return !/^(?:encaminhad[ao]|dados (?:d[ao]|de) (?:cliente|terceiro|mãe|pai|esposa|marido|amigo)|endereço (?:de entrega|da minha mãe|do meu pai))\b/i.test(trimmed);
     });
     // Percorrer cada linha, não apenas a primeira ocorrência da mensagem:
     // correções conflitantes dentro do mesmo envio também exigem revisão.
