@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createBridgeHandler} from '../../../supabase/functions/integration-core-bridge/handler.mjs';
-import {executeD11BridgeAction} from '../../../supabase/functions/integration-core-bridge/d11-bridge.mjs';
+import {executeD11BridgeAction,isD11BridgeActionEnabled} from '../../../supabase/functions/integration-core-bridge/d11-bridge.mjs';
 import {callCoreBridgeAction,CORE_BRIDGE_URL,sha256Hex} from '../src/core-bridge.mjs';
 import {createD11BridgeAdapters,createD11BridgeObservation} from '../src/shopee-d11-bridge-adapter.mjs';
 const A='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',L='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',I='cccccccc-cccc-4ccc-8ccc-cccccccccccc',S='SYNTHETIC001';
@@ -138,4 +138,14 @@ test('D11 signed protected intake classifies absence, existing order and tombsto
  const ack=await f.adapters.commitIntake(pinned,p);assert.equal(ack.status,'intake_written');
  assert.equal(ack.observation_id,I);assert.deepEqual(f.calls,[{name:'commit_shopee_d11_intake',
  args:{p_account:A,p_lease:L,p_revision:1,p_observation:I,p_projection:p}}]);
+});
+
+test('D11 default-off flags isolate intake commit from observation and shipment claim',()=>{
+ const env={},get=k=>env[k];
+ for(const a of ['shopee.d11.intake.read','shopee.d11.intake.commit','shopee.d11.effect.claim'])assert.equal(isD11BridgeActionEnabled(a,get),false);
+ env.SHOPEE_D11_BRIDGE_ENABLED='true';assert.equal(isD11BridgeActionEnabled('shopee.d11.intake.read',get),true);
+ assert.equal(isD11BridgeActionEnabled('shopee.d11.intake.commit',get),false);
+ env.SHOPEE_D11_INTAKE_COMMIT_ENABLED='true';assert.equal(isD11BridgeActionEnabled('shopee.d11.intake.commit',get),true);
+ assert.equal(isD11BridgeActionEnabled('shopee.d11.effect.claim',get),false);
+ env.SHOPEE_D11_BRIDGE_ENABLED='false';assert.equal(isD11BridgeActionEnabled('shopee.d11.intake.commit',get),false);
 });
