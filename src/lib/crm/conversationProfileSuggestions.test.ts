@@ -179,13 +179,13 @@ test('B6 validates conversation identity before any message page and discards st
   // Guard both before reading the conversation and immediately before saving.
   assert.ok(panel.split("from('service_conversations')").length - 1 >= 2);
   assert.match(panel, /if \(scopeError \|\| !activeConversation\) throw/);
-  assert.match(panel, /if \(saveRef\.current \|\| loading \|\| scanLimitReached \|\| !analyzedHistoryRef\.current \|\| !analyzedLatestMessageId \|\| !conversationId/);
+  assert.match(panel, /if \(saveRef\.current \|\| loading \|\| scanLimitReached \|\| oversizedMessageCount > 0 \|\| !analyzedHistoryRef\.current \|\| !analyzedLatestMessageId \|\| !conversationId/);
 });
 
 test('B7 blocks confirmation for truncated history and requires a fresh customer-message snapshot', () => {
   const panel = readFileSync('src/components/crm/ConversationProfileSuggestions.tsx', 'utf8');
   assert.match(panel, /setAnalyzedLatestMessageId\(collected\[0\]\?\.id \?\? null\)/);
-  assert.match(panel, /scanLimitReached \|\| !analyzedHistoryRef\.current \|\| !analyzedLatestMessageId/);
+  assert.match(panel, /scanLimitReached \|\| oversizedMessageCount > 0 \|\| !analyzedHistoryRef\.current \|\| !analyzedLatestMessageId/);
   assert.match(panel, /item\.state !== 'empty' \|\| scanLimitReached/);
   assert.match(panel, /Histórico parcialmente examinado: preenchimento automático bloqueado/);
   const confirmation = panel.slice(panel.indexOf('const confirmSelected = async'));
@@ -468,4 +468,26 @@ test('B17 standalone customer declaration without reply header continues to work
   ], {});
   assert.equal(result.find(item => item.field === 'email')?.state, 'empty');
   assert.equal(result.find(item => item.field === 'city')?.value, 'Itapema');
+});
+
+test('B18 refuses to propose any field from a partially read long message', () => {
+  const oversized = 'Meu e-mail é indevido@example.com' + 'x'.repeat(4000)
+    + String.fromCharCode(10) + 'E-mail: outro@example.com';
+  const result = proposeCrmConversationProfileFields([
+    msg('long', 'customer', oversized),
+    msg('short', 'customer', 'Meu nome é Ana Cliente'),
+  ], {});
+  assert.equal(result.find(item => item.field === 'email'), undefined);
+  assert.equal(result.find(item => item.field === 'name')?.value, 'Ana Cliente');
+});
+
+test('B18 bounded messages still work but oversized history blocks all writes at UI gate', () => {
+  const withinLimit = 'Meu e-mail é teste@example.com' + ' '.repeat(3900);
+  const fields = proposeCrmConversationProfileFields([msg('bounded', 'customer', withinLimit)], {});
+  assert.equal(fields.find(item => item.field === 'email')?.state, 'empty');
+  const panel = readFileSync('src/components/crm/ConversationProfileSuggestions.tsx', 'utf8');
+  assert.match(panel, /oversizedMessageCount > 0 \|\| !analyzedHistoryRef\.current/);
+  assert.match(panel, /disabled=\{item\.state !== 'empty' \|\| scanLimitReached \|\| oversizedMessageCount > 0/);
+  assert.match(panel, /análise integral indisponível e preenchimento bloqueado/);
+  assert.match(panel, /message\.content\?\.length \?\? 0/);
 });
